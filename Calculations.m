@@ -4,18 +4,54 @@ classdef Calculations < handle
     
     methods
         %% collision checking
-        function CheckCollision(robot,q)
+        function CheckCollision(self)
+            robot = [self.ur3; self.table];
+            
+            
+            for i=1:size(robot,1)
+                linkTransforms = self.getLinkTransforms(robot(i), robot(i).getpos);
+            end
+            linkTransforms
         end
         
-        function IsInCylinder(self,pose,points)%radius,height,safetyDistance,points)
+        % get transforms of robot links
+        function linkTransforms = getLinkTransforms(~, robot, q)
+            linkTransforms = zeros(4,4,robot.n+1);
+
+            linkTransforms(:,:,1) = robot.base;
+            for i = 2:robot.n+1
+                linkTransforms(:,:,i) = linkTransforms(:,:,i-1) * trotz(q(i-1)+robot.links(i-1).offset) * transl(0,0,robot.links(i-1).d) * transl(robot.links(i-1).a,0,0) * trotx(robot.links(i-1).alpha);
+            end
+        end
+        
+        % check if any point is inside a cylinder
+        function IsInCylinder(~,pose,radius,height,safetyDistance,points)
+            pointsInPose = zeros(size(points),3);
+            mask = zeros(size(points,1),1);
             for i = 1:size(points,1)
                  transform = inv(pose) * transl(points(i,1),points(i,2),points(i,3));
                  pointsInPose(i,:) = transform(1:3,4)';
             end
-                         
+            for i = 1:size(pointsInPose,1)
+                if (abs(pointsInPose(1,3)) <= (height/2 + safetyDistance))...
+                && (sqrt(pointsInPose(i,1)^2 + pointsInPose(i,2)^2) <= (radius + safetyDistance))
+                    mask(i,1) = 1;
+                end                    
+            end
+        end
+        
+        % check if any point is inside a rectangular prism
+        function IsInRectangularPrism(~,pose,x,y,z,safetyDistance,points)
+            pointsInPose = zeros(size(points),3);
             mask = zeros(size(points,1),1);
             for i = 1:size(points,1)
-                if (abs(points(1,3)) < height/2) && (sqrt(points(i,1)^2 + points(i,2)^2) < radius)
+                 transform = inv(pose) * transl(points(i,1),points(i,2),points(i,3));
+                 pointsInPose(i,:) = transform(1:3,4)';
+            end
+            for i = 1:size(pointsInPose,1)
+                if (abs(pointsInPose(1,1)) <= (x/2 + safetyDistance))...
+                && (abs(pointsInPose(1,2)) <= (y/2 + safetyDistance))...
+                && (abs(pointsInPose(1,3)) <= (z/2 + safetyDistance))
                     mask(i,1) = 1;
                 end                    
             end
