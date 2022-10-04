@@ -19,10 +19,7 @@ classdef Calculations < handle
                             "c"     0.0315  0.0315  0.0947;
                             "c"     0.0315  0.0315  0.0320];
             
-            safetyDistance = 0.01;
-            
-points = [1 1 1;
-          0 1 0];
+            safetyDistance = 0.
             
             
             for r = 1:size(robot,1) %iterate through every robot
@@ -33,9 +30,9 @@ points = [1 1 1;
                     centerTransform(:,:) = linkTransform * transl(offset(l,1,r),offset(l,2,r),offset(l,3,r)) * trotx(offset(l,4,r)) * troty(offset(l,5,r)) * trotz(offset(l,6,r));
 %                     c_h = trplot(centerTransform, 'color', 'r')
                     if shape(l,1,r) == "c"
-                        mask = self.IsInCylinder(centerTransform,shape(l,2,r),shape(l,4,r),safetyDistance,points)
+                        mask = self.IsInCylinder(centerTransform,shape(l,2,r),shape(l,4,r),safetyDistance,points);
                     elseif shape(l,1,r) == "p"
-                        mask = self.IsInCylinder(centerTransform,shape(l,2,r),shape(l,3,r),shape(l,4,r),safetyDistance,points)
+                        mask = self.IsInCylinder(centerTransform,shape(l,2,r),shape(l,3,r),shape(l,4,r),safetyDistance,points);
                     end
                 end
             end
@@ -53,7 +50,7 @@ points = [1 1 1;
         
         % check if any point is inside a cylinder
         function mask = IsInCylinder(~,pose,radius,height,safetyDistance,points)
-            pointsInPose = zeros(size(points,1),3);
+            pointsInPose = zeros(size(points),3);
             mask = zeros(size(points,1),1);
             for i = 1:size(points,1)
                  transform = inv(pose) * transl(points(i,1),points(i,2),points(i,3));
@@ -69,7 +66,7 @@ points = [1 1 1;
         
         % check if any point is inside a rectangular prism
         function mask = IsInRectangularPrism(~,pose,x,y,z,safetyDistance,points)
-            pointsInPose = zeros(size(points,1),3);
+            pointsInPose = zeros(size(points),3);
             mask = zeros(size(points,1),1);
             for i = 1:size(points,1)
                  transform = inv(pose) * transl(points(i,1),points(i,2),points(i,3));
