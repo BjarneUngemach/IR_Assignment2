@@ -109,8 +109,11 @@ points = [1 1 1;
         function [spongePath,squeegeePath]=CalculateCleaningPaths(self, stepsize, windowpoints)
             %default window
             if nargin < 3
-                windowpoints = [0.5, 0.40,0.9;
-                                0.5,-0.20,0.9;
+                windowpoints = [0.5, 0.40,0.9;...
+                                0.5,-0.20,0.9;...
+                                0.5, 0.40,0.6];
+                [0.5, 0.40,0.9;...
+                                0.5,-0.20,0.9;...
                                 0.5, 0.40,0.6];
             end
             %default stepsize
@@ -265,7 +268,7 @@ points = [1 1 1;
             end
             
             % plot trajectory
-            plot = 0;
+            plot = 1;
             if plot==1
                 for i = 1:size(spongePath,3)
                     %trplot(spongePath(:,:,i),'length',0.05, 'color', 'b');
