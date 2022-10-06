@@ -37,37 +37,43 @@ classdef SwipeBot < UR3 & Table & Calculations
     
         %% function homes all robots
         function MoveTo(self, choice)
-            %%% UR3 %%%
+            % predefine jointstates
+            % UR3
             qUR3 = self.ur3.getpos;
             qUR3Home = [-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0];
             qUR3Store = deg2rad([-90 -200 -70 -90 180 0]);
             qUR3PreStore = deg2rad([-90 -135 -110 -115 180 0]);
-            % home position
+            
+            % move to home position
             if choice == "home"
-                if 0.0001 > self.ur3.getpos - qUR3Store
-                    qMatrixUR3 = jtraj(qUR3Store,qUR3PreStore,50);
-                    qMatrixUR3 = [qMatrixUR3; jtraj(qUR3PreStore,qUR3Home,50)];
+                if 0.0001 > self.ur3.getpos - qUR3Store                         % if robot is in "store" position...
+                    qMatrixUR3 = jtraj(qUR3Store,qUR3PreStore,50);              % move robot to waypoint
+                    qMatrixUR3 = [qMatrixUR3; jtraj(qUR3PreStore,qUR3Home,50)]; % then move to "home" position
                 else
-                    qMatrixUR3 = jtraj(qUR3,qUR3Home,50);
+                    qMatrixUR3 = jtraj(qUR3,qUR3Home,50);                       % else move directly to home position
                 end
             end
             if choice == "store"
-                if 0.0001 < self.ur3.getpos - qUR3Home
-                    self.MoveTo("home");
+                if 0.0001 < self.ur3.getpos - qUR3Home                          % if robot is NOT at home position...
+                    self.MoveTo("home");                                        % move robot there first
                 end
-                qMatrixUR3 = jtraj(qUR3,qUR3PreStore,50);
-                qMatrixUR3 = [qMatrixUR3; jtraj(qUR3PreStore,qUR3Store,50)];
+                qMatrixUR3 = jtraj(qUR3,qUR3PreStore,50);                       % move robot to waypoint
+                qMatrixUR3 = [qMatrixUR3; jtraj(qUR3PreStore,qUR3Store,50)];    % then to "store" position
             end
             
-            for step = 1:size(qMatrixUR3,1)
+            for step = 1:size(qMatrixUR3,1)                                     % animate robot movement
                     self.ur3.animate(qMatrixUR3(step,:));
-                    pause(0.1);
+                    if self.CheckCollision("table", self.ur3) > 0
+                        disp("Damn, I hit something! Press enter to continue...")
+                        pause
+                    end
+                    pause(0);
             end
         end
         
         %% get a joint state Matrix with a Resolved Motion Rate Control
-        function [qMatrix,error] = SolveRMRC(self, robot, trajectory, stepsize, speed)
-            %%% constants %%%
+        function [qMatrix,error] = SolveRMRC(~, robot, trajectory, stepsize, speed)
+            %%% CONSTANTS %%%
             WEIGHT_MATRIX = diag([1 1 1 0.1 0.1 0.1]);   % Matrix of gains for RMRC
             THRESHOLD = 0.001;                           % threshold for DLS use
             MAX_DAMPING = 0.01;                          % max damping factor of DLS
@@ -112,7 +118,6 @@ classdef SwipeBot < UR3 & Table & Calculations
                     end
                 end
                 qMatrix(i+1,:) =  qMatrix(i,:) + deltaT*qdot';                                  % Get next joint state
-                
                 
                 actualTransform = robot.fkine(qMatrix(i+1,:));                                  % get actual pose of endeffector
                 trdiff = trajectory(:,:,i+1) - actualTransform;                                 % calculate error between poses
