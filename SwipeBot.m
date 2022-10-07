@@ -1,4 +1,4 @@
-classdef SwipeBot < UR3 & Table & Calculations
+classdef SwipeBot < UR3 & MECA500 & Table & Calculations
     
     properties
         base = eye(4);
@@ -20,14 +20,14 @@ classdef SwipeBot < UR3 & Table & Calculations
         
         %% Update all elements to the desired pose of the SwipeBot
         function UpdatePosition(self)
-            self.table.base = self.base;                            %move the table to desired pose
-            self.table.animate(0);                                  %plot table
-            self.ur3.base = self.base * transl(0.1124, 0.1124, 0.42);       %put the UR3 on top of the table
-            q = self.ur3.getpos;                                    %get current joint configuration
-            self.ur3.animate(q);                                    %plot the same joint configuration at new pose
-%             self.pf3400.base = self.base * transl(-0.2, -0.3, 0.07);%put the PF3400 in the bottom shelf
-%             q = self.pf3400.getpos;                                 %get current joint configuration
-%             self.pf3400.animate(q);                                 
+            self.table.base = self.base;                                %move the table to desired pose
+            self.table.animate(0);                                      %plot table
+            self.ur3.base = self.base * transl(0.1124, 0.1124, 0.42);   %put the UR3 on top of the table
+            q = self.ur3.getpos;                                        %get current joint configuration
+            self.ur3.animate(q);                                        %plot the same joint configuration at new pose
+            self.meca500.base = self.base * transl(-0.1, 0, 0.05);      %put the Meca500 in the bottom shelf
+            q = self.meca500.getpos;                                    %get current joint configuration
+            self.meca500.animate(q);                                    %plot the same joint configuration at new pose
         end
     end
     
@@ -65,9 +65,9 @@ classdef SwipeBot < UR3 & Table & Calculations
                     self.ur3.animate(qMatrixUR3(step,:));
                     if self.CheckCollision("table", self.ur3) > 0
                         disp("Damn, I hit something! Press enter to continue...")
-                        pause
+%                         pause
                     end
-                    pause(0);
+                    pause(0.01);
             end
         end
         

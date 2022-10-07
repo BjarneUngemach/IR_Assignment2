@@ -2,8 +2,6 @@ classdef MECA500 < handle
     properties
         %> Robot model
         meca500;
-        
-        workspace = [-0.5 0.5 -0.5 0.5 -0.5 0.5];
     end
     
     methods%% Class for Meca500 robot simulation
