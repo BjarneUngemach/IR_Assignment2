@@ -167,8 +167,8 @@ classdef Calculations < handle
                
             %%%%% path of sponge %%%%%
             
-            spongeWidth    =  0.1;  % measurements of sponge
-            spongeLength   =  0.03;
+            spongeWidth    =  0.2;  % measurements of sponge
+            spongeLength   =  0.06;
                                     
             % 1. approach window
             step=1;
