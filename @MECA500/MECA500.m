@@ -8,7 +8,7 @@ classdef MECA500 < handle
         function self = MECA500()
                         
             self.GetMeca500Robot();
-            %self.PlotAndColourMeca500();
+            self.PlotAndColourMeca500();
 
             drawnow
         end
@@ -25,7 +25,7 @@ classdef MECA500 < handle
             L6 = Link('d',0.07,'a',0,'alpha',0,'qlim',deg2rad([-360,360]), 'offset', 0);
              
             self.meca500 = SerialLink([L1 L2 L3 L4 L5 L6],'name',name);
-%             self.meca500.plot(zeros(1,6));
+%            self.meca500.plot(zeros(1,6));
         end
 
         %% PlotAndColourRobot
