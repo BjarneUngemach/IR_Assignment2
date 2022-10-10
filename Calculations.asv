@@ -3,61 +3,6 @@ classdef Calculations < handle
     
     
     methods
-    %%% RMRC SOLVER %%%
-        %% get a joint state Matrix with a Resolved Motion Rate Control
-        function [qMatrix,error] = SolveRMRC(~, robot, trajectory, stepsize, speed)
-            %%% CONSTANTS %%%
-            WEIGHT_MATRIX = diag([1 1 1 0.1 0.1 0.1]);   % Matrix of gains for RMRC
-            THRESHOLD = 0.001;                           % threshold for DLS use
-            MAX_DAMPING = 0.01;                          % max damping factor of DLS
-            
-            
-            deltaT = stepsize/speed;                    % get timestep for wanted velocity
-            steps = size(trajectory,3);                 % get number of steps in trajectory
-            
-            % allocate arrays
-            qMatrix = nan(steps,6);                     % get empty matrix
-            error = nan(steps,1);                       % get empty position error list
-            
-            qGuess = robot.getpos;
-            
-            
-            qMatrix(1,:) = robot.getpos;%robot.ikine(trajectory(:,:,1),qGuess);                               % solve first qMatrix with inverse kinematics
-            actualTransform = robot.fkine(qMatrix(1,:));                                        % get actual pose of endeffector
-            trdiff = trajectory(:,:,1) - robot.fkine(qMatrix(1,:));                             % calculate error between poses
-            error(1) = sqrt(sum((trdiff(1:3,4)).^2));                                          
-            
-            for i = 1:steps-1
-                posdot = (trajectory(1:3,4,i+1) - actualTransform(1:3,4))/deltaT;               % Calculate linear velocities (x, y, z) to next step
-                skewOmega = (trajectory(1:3,1:3,i+1)*actualTransform(1:3,1:3)' - eye(3))/deltaT;% Calculate skew-symmetric matrix of omega to get angular velocities
-                rotdot = [skewOmega(3,2);skewOmega(1,3);skewOmega(2,1)];                        % Extract angular velocities (roll, pitch, yaw) between steps
-                xdot = WEIGHT_MATRIX * [posdot;rotdot];                                         % concatinate linear and angular velocity and implement a gain factor
-                
-                J = robot.jacob0(qMatrix(i,:));                                                 % Get the Jacobian at the current state
-                manipulability = sqrt(det(J*J'));                                               % calculate manipulability
-                if manipulability < THRESHOLD                                                   % If manipulability is less than given threshold
-                    dampingFactor = (1 - (manipulability/THRESHOLD)^2) * MAX_DAMPING;           % determine damping factor of DLS
-                    qdot = ((J'*J + dampingFactor*eye(6))\J')*xdot;                             % Get joint velocities with Damped Least Squares Optimization
-                    disp("DLS used");
-                else
-                    qdot = J\xdot;                                                              % Solve for joint velocitities via RMRC
-                end
-                
-                for j = 1:6                                                                     % Loop through joints 1 to 6
-                    if qMatrix(i+1,j) + deltaT*qdot(j) < robot.qlim(j,1)                        % If next joint angle is lower than joint limit...
-                        qdot(j) = 0;                                                            % Stop the motor
-                    elseif qMatrix(i,j) + deltaT*qdot(j) > robot.qlim(j,2)                      % If next joint angle is greater than joint limit ...
-                        qdot(j) = 0;                                                            % Stop the motor
-                    end
-                end
-                qMatrix(i+1,:) =  qMatrix(i,:) + deltaT*qdot';                                  % Get next joint state
-                
-                actualTransform = robot.fkine(qMatrix(i+1,:));                                  % get actual pose of endeffector
-                trdiff = trajectory(:,:,i+1) - actualTransform;                                 % calculate error between poses
-                error(i+1) = sqrt(sum((trdiff(1:3,4)).^2));
-            end
-        end
-        
     %%% COLLISION CHECKING %%%
         %% collision checking function
         function [numberCollidingPoints,collisionInfo] = CheckCollision(self, checkMatrix, robot, q)
@@ -222,8 +167,8 @@ classdef Calculations < handle
                
             %%%%% path of sponge %%%%%
             
-            spongeWidth    =  0.3;  % measurements of sponge
-            spongeLength   =  0.1;
+            spongeWidth    =  0.2;  % measurements of sponge
+            spongeLength   =  0.06;
                                     
             % 1. approach window
             step=1;
