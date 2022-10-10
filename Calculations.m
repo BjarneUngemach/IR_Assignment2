@@ -3,23 +3,101 @@ classdef Calculations < handle
     
     
     methods
-        %% collision checking
-        function CheckCollision(robot,q)
+    %%% COLLISION CHECKING %%%
+        %% collision checking function
+        function [numberCollidingPoints,collisionInfo] = CheckCollision(self, checkMatrix, robot, q)
+            if nargin < 3
+                robot = [self.ur3];                 % pack all robots in an array
+            end    
+            if nargin < 4
+                for r = 1:size(robot,1)
+                    q(r,:) = robot(r).getpos;       % get current joint state for every robot
+                end
+            end
+            
+            %%% CONSTANTS %%%
+            SAFETYDISTANCE = 0.01;
+            % offset of center of link from joint transform "[x y z r p y]"
+            OFFSET(:,:,1) = [0      -0.0266 0       -pi/2   0       0;      % offsets of UR3
+                             0.1220 0       0.1199  -pi/2   -pi/2   0;
+                             0.1077 0       0.0208  -pi/2   -pi/2   0;
+                             0      0       0.0032  0       0       -pi;
+                             0      0       0.0027  0       0       -pi;
+                             0      0       -0.0160 0       0       -pi];
+            % shape matrix defines geometry of collision checking cage (first collumn defines shape: "1" for cylinder, "2" for prism) 
+            SHAPE(:,:,1) =  [1      0.0450  0.0450  0.2058;                 % shapes of UR3
+                             1      0.0549  0.0549  0.3265;
+                             1      0.0487  0.0487  0.2818;
+                             1      0.0315  0.0315  0.0972;
+                             1      0.0315  0.0315  0.0947;
+                             1      0.0315  0.0315  0.0320];
+            
+            
+                         
+            % get list of points that need to be checked (chosen by checkMatrix)
+            points = [];
+            if ismember("table", checkMatrix)
+                points = [points; self.ExtractRobotpoints(self.table)];
+            end   
+            if ismember("ur3", checkMatrix)
+                points = [points; self.ExtractRobotpoints(self.ur3)];
+            end       
+            
+            
+            % code to check collisions
+            mask = nan(size(points,1),6,size(robot,1));
+            for r = 1:size(robot,1)                                         % iterate through every robot
+                linkTransform = robot(r).base;                              % initial linkTransform is base of robot
+                for l = 1:robot(r).n                                        % iterate through every link of robot
+                    linkTransform = linkTransform * trotz(q(r,l)+robot(r).links(l).offset) * transl(0,0,robot(r).links(l).d) * transl(robot(r).links(l).a,0,0) * trotx(robot(r).links(l).alpha);    % get link transform
+                    centerTransform(:,:) = linkTransform * transl(OFFSET(l,1,r),OFFSET(l,2,r),OFFSET(l,3,r)) * trotx(OFFSET(l,4,r)) * troty(OFFSET(l,5,r)) * trotz(OFFSET(l,6,r));                  % correct link transforms to center of link
+%                     c_h = trplot(centerTransform, 'color', 'r')
+                    if SHAPE(l,1,r) == 1                                    % if collision checking is cylindric
+                        mask(:,l,r) = self.IsInCylinder(centerTransform,SHAPE(l,2,r),SHAPE(l,4,r),SAFETYDISTANCE,points);   % check collision of points
+                    elseif SHAPE(l,1,r) == 2                                % if collision checking is prismatic
+                        mask(:,l,r) = self.IsInRectangularPrism(centerTransform,SHAPE(l,2,r),SHAPE(l,3,r),SHAPE(l,4,r),SAFETYDISTANCE,points);  % check collision of points
+                    end
+                end
+            end
+            
+            % if there is a collision (mask contains "1"), get index of colliding point, index of colliding link and index of colliding robot
+            [collidingPoint,collidingLink,collidingRobot] = ind2sub(size(mask),find(mask == 1));
+            collisionInfo = [collidingPoint,collidingLink,collidingRobot];  % concatinate indices to matrix
+            numberCollidingPoints = size(unique(collisionInfo(:,1)),1);     % count number of colliding points
         end
         
-        function IsInCylinder(self,pose,points)%radius,height,safetyDistance,points)
-            for i = 1:size(points,1)
-                 transform = inv(pose) * transl(points(i,1),points(i,2),points(i,3));
-                 pointsInPose(i,:) = transform(1:3,4)';
-            end
-                         
-            mask = zeros(size(points,1),1);
-            for i = 1:size(points,1)
-                if (abs(points(1,3)) < height/2) && (sqrt(points(i,1)^2 + points(i,2)^2) < radius)
-                    mask(i,1) = 1;
-                end                    
+        %% check if any point is inside a cylinder with given centerpose
+        function mask = IsInCylinder(~,pose,radius,height,safetyDistance,points)
+            pointsInPose = [pose\[points,ones(size(points,1),1)]']';        % update global points to local coordinate frame
+            mask = (abs(pointsInPose(:,3)) <= (height/2 + safetyDistance)) & (sqrt(pointsInPose(:,1).^2 + pointsInPose(:,2).^2) <= (radius + safetyDistance)); % conditions for collision
+        end
+        
+        %% check if any point is inside a rectangular prism with given centerpose
+        function mask = IsInRectangularPrism(~,pose,x,y,z,safetyDistance,points)
+            pointsInPose = [pose\[points,ones(size(points,1),1)]']';        % update global points to local coordinate frame
+            mask = (abs(pointsInPose(:,1)) <= (x/2 + safetyDistance)) & (abs(pointsInPose(1,2)) <= (y/2 + safetyDistance)) & (abs(pointsInPose(1,3)) <= (z/2 + safetyDistance));    % conditions for collision
+        end
+        
+        %% extract global points of robot classes
+        function points = ExtractRobotpoints(~, robot)
+            q = robot.getpos;                                               % get current joint state
+            points = [];                                                    % define empty matrix
+            for i = 1:robot.n+1                                             % iterate through every robotlink + base
+                if i == 1
+                    linkTransform = robot.base;                             % use robotbase in first iteration
+                else                                                        % calculate joint transforms
+                    linkTransform = linkTransform * trotz(q(i-1)+robot.links(i-1).offset) * transl(0,0,robot.links(i-1).d) * transl(robot.links(i-1).a,0,0) * trotx(robot.links(i-1).alpha);
+                end
+
+                if ~isempty(robot.points{1,i})                              % if points exist for that joint
+                    globalPoints = [linkTransform * [robot.points{1,i},ones(size(robot.points{1,i},1),1)]']';   % determine points in global coordinate frame
+                    points = [points; globalPoints(:,1:3)];                 % concatinate calculated points
+                end
             end
         end
+        
+        
+    %%% GENERATING TRAJECTORIES %%%
         %% calculate transform trajectory between two poses with lspb
         % this function calculates a lspb trajectory between two poses with a maximum stepsize of the input parameter "stepsize"
         function [transformTrajectory,lspbSteps] = GetLspbTrajectory(~,transform1,transform2,stepsize)
@@ -46,8 +124,8 @@ classdef Calculations < handle
         function [spongePath,squeegeePath]=CalculateCleaningPaths(self, stepsize, windowpoints)
             %default window
             if nargin < 3
-                windowpoints = [0.5, 0.40,0.9;...
-                                0.5,-0.20,0.9;...
+                windowpoints = [0.5, 0.40,0.9;
+                                0.5,-0.20,0.9;
                                 0.5, 0.40,0.6];
             end
             %default stepsize
@@ -202,7 +280,7 @@ classdef Calculations < handle
             end
             
             % plot trajectory
-            plot = 1;
+            plot = 0;
             if plot==1
                 for i = 1:size(spongePath,3)
                     %trplot(spongePath(:,:,i),'length',0.05, 'color', 'b');
