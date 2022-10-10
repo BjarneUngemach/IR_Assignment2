@@ -3,8 +3,16 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
     properties
         base = eye(4);
         workspace = [-0.5 0.5 -0.5 0.5 0 1]
-        eeOffsMeca500 = troty(-pi/2);
-        toolChangeTr = transl(0,-0.15,0.35) * troty(-pi);
+%         eeOffsMeca500 = troty(-pi/2);
+        toolChangeTr = transl(0,-0.15,0.4) * troty(-pi);
+
+
+        %UR3%
+        qUR3Home = [-1.5708 -1.5539 -2.2649 -0.8937 1.5708 0];
+        trUR3Home = [-1 0  0  0;
+                      0 1  0 -0.135;
+                      0 0 -1  0.6;
+                      0 0  0  1];
         waypointUR3 = transl(0.2353,0,0.830) * trotz(-pi/2) * trotx(-pi/2);
     end
     
@@ -43,7 +51,7 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
             % predefine jointstates
             % UR3
             qUR3 = self.ur3.getpos;
-            qUR3Home = [-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0];
+            qUR3Home = self.qUR3Home;
             qUR3Store = deg2rad([-90 -200 -70 -90 180 0]);
             qUR3PreStore = deg2rad([-90 -135 -110 -115 180 0]);
             
@@ -111,6 +119,25 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
                 pause(0.001);
             end
             pause;
+        end
+        
+        %% move UR3 to the starting position at the window
+        function qMatrix = MoveUR3toWindow(self,startPos,steps)
+            waypoints(:,:,1) = self.trUR3Home;
+            waypoints(:,:,2) = self.waypointUR3;
+            waypoints(:,:,3) = startPos;
+            
+            qGuess = self.qUR3Home;
+            qMatrix = nan(2*steps,6);
+            
+            for i=1:size(waypoints,3)-1
+                q1 = self.ur3.ikcon(waypoints(:,:,i),qGuess);
+                q2 = self.ur3.ikcon(waypoints(:,:,i+1),qGuess);
+                
+                qMatrix(((i-1)*steps+1):(i*steps),:) = jtraj(q1,q2,steps);
+                
+                qGuess = qMatrix((i*steps),:);
+            end
         end
     end
 end

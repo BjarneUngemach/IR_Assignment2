@@ -179,9 +179,9 @@ classdef Calculations < handle
         function [spongePath,squeegeePath]=CalculateCleaningPaths(self, stepsize, windowpoints)
             %default window
             if nargin < 3
-                windowpoints = [0.5, 0.40,0.9;
-                                0.5,-0.20,0.9;
-                                0.5, 0.40,0.6];
+                windowpoints = [0.5, 0.40,1.0;
+                                0.5,-0.20,1.0;
+                                0.5, 0.40,0.4];
             end
             %default stepsize
             if nargin < 2
@@ -222,7 +222,7 @@ classdef Calculations < handle
                
             %%%%% path of sponge %%%%%
             
-            spongeWidth    =  0.3;  % measurements of sponge
+            spongeWidth    =  0.25;  % measurements of sponge
             spongeLength   =  0.1;
                                     
             % 1. approach window
@@ -347,8 +347,8 @@ classdef Calculations < handle
             
             %%%%% path of squeegee %%%%%
             
-            squeegeeWidth    =  0.2;  % measurements of squeegee
-            squeegeeLength   =  0.01;
+            squeegeeWidth    =  0.10;  % measurements of squeegee
+            squeegeeLength   =  0.06;
             
             step=1;
             startPos = windowCorner(:,:,1) * transl(squeegeeWidth/2, squeegeeLength/2, -safetyDistance) * trotz(pi/2);    % first pose of trajectory at top left corner
@@ -400,20 +400,20 @@ classdef Calculations < handle
         end
         
         %% generate a transform trajectory from given waypoints with lspb
-        function transformTrajectory = GetWaypointTrajectory(~, transforms, steps)
-            waypoints = nan(6,size(transforms,3));
-            for i = 1:size(transforms,3)
-                waypoints(:,i) = [transforms(1:3,4,i); tr2rpy(transforms(1:3,1:3,i))'];
-            end 
-            
-            travelpoints = trapveltraj(waypoints,steps);
-            
-            transformTrajectory = nan(4,4,steps);
-            for i = 1:steps
-                transformTrajectory(:,:,i) = [rpy2r(travelpoints(4:6,i)'), travelpoints(1:3,i);
-                                              0, 0, 0, 1];
-            end
-        end
+%         function transformTrajectory = GetWaypointTrajectory(~, transforms, steps)
+%             waypoints = nan(6,size(transforms,3));
+%             for i = 1:size(transforms,3)
+%                 waypoints(:,i) = [transforms(1:3,4,i); tr2rpy(transforms(1:3,1:3,i))'];
+%             end 
+%             
+%             travelpoints = trapveltraj(waypoints,steps);
+%             
+%             transformTrajectory = nan(4,4,steps);
+%             for i = 1:steps
+%                 transformTrajectory(:,:,i) = [rpy2r(travelpoints(4:6,i)'), travelpoints(1:3,i);
+%                                               0, 0, 0, 1];
+%             end
+%         end
     end
 end
 
