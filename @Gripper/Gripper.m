@@ -6,7 +6,10 @@ classdef Gripper < handle
     properties
         % cell structure of two fingers
         finger;
-        
+
+        %structure for base/core
+        core
+
         % gripper status (open/grab/close)
         status;
         
@@ -21,7 +24,7 @@ classdef Gripper < handle
             Log.mlog = {Log.DEBUG,'Gripper','Loading gripper model...'}; 
             
             % create two fingers 
-            for i = 1:2
+            for i = 1:1
                 self.finger{i} = self.GetFingerModel(['finger',num2str(i)]);
             end
             
@@ -158,8 +161,15 @@ classdef Gripper < handle
             % declare the links and make a model out of it for one finger
             L1 = Link('d',0,'a',0.050,'alpha',0,'qlim',[-0.8 0],'offset',1);
             
-            model = SerialLink([L1],'name',name);
+            model = SerialLink(L1,'name',name);
         end        
+        function model = GetBaseModel(name)
+            
+            % declare the links and make a model out of it for one finger
+            L1 = Link('d',0.5,'a',0,'alpha',0,'qlim',[0 0],'offset',0);
+            
+            model = SerialLink(L1,'name',name);
+        end 
     end
     
 end
