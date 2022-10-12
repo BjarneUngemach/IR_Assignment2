@@ -1,57 +1,58 @@
-classdef Sponge 
+classdef Sponge < handle
+    %UFO A way of creating a group of UFOs
+    %
     
-        properties
-            
-        model;
+    properties
         
-        % resulting dimensions
-        width = 0.2;
-        length = 0.5;
-        height = 0.15;
+        sponge;
         
-        % Offset of centre point
-%         xoff = 0.0014;
-%         yoff = -0.0043;
-%         zoff = -0.0033;
+        
+        %> Ply file data about the model
+        faceData = [];
+        vertexData = [];
+        plyData = [];
     end
     
     methods
-        %% PlotAndColourSponge
-        % Given a sponge index, add the glyphs (vertices and faces) and
-        % colour them in if data is available 
-        function PlotAndColourSponge(self, i)
-            % load data from .ply file
-            [ faceData, vertexData, plyData] = plyread('sponge.ply','tri');                
-            self.sponge{i}.faces = {faceData, []};
-            self.sponge{i}.points = {[vertexData(:,1)+self.xoff,vertexData(:,2)+self.yoff,vertexData(:,3)+self.zoff] * rotz(pi/2),[]};
+        %% ...structors
+        function self = Sponge
             
-            % Display sponge
-            plot3d(self.sponge{i},0,'delay',0,'view', [125 15]);
-            if isempty(findobj(get(gca,'Children'),'Type','Light'))
-                camlight
-            end
-            self.sponge{i}.delay = 0;
-
-            % Try to correctly colour the bricks (if colours are in ply file data)
-            handles = findobj('Tag', self.sponge{i}.name);
-            h = get(handles,'UserData');
-            try 
-            h.link(1).Children.FaceVertexCData = [plyData.vertex.red ...
-                                                , plyData.vertex.green ...
-                                                , plyData.vertex.blue]/255;
-            h.link(1).Children.FaceColor = 'interp';
-            catch ME_1
-               disp(ME_1);
-            end
+            self.GetModel('Sponge');
+            
+            self.sponge.base = transl(0.2, -0.18, 0.18)*troty(pi)*trotz(pi/2);
+            
+            self.sponge.animate(0);
+            
         end
-    end
-    
-    methods (Static)
-        %% Get Sponge model
-        function model = GetSpongeModel(name)
-            % generate Sponge models
-            L1 = Link('alpha',0,'a',0,'d',0,'offset',0);
-            model = SerialLink(L1,'name',name);
+        
+        
+        
+        
+        
+        
+        %% GetModel
+        function GetModel(self,name)
+            if nargin < 1
+                name = 'Sponge';
+            end
+
+            [faceData,vertexData,plyData] = plyread('Sponge.ply','tri');
+            
+            L1 = Link('alpha',0,'a',1,'d',0,'offset',0);
+            self.sponge = SerialLink(L1,'name',name);
+            self.sponge.faces = {faceData,[]};
+            self.sponge.points = {vertexData,[]};
+            
+            plot3d(self.sponge,0);
+            handles = findobj('Tag', self.sponge.name);
+            h = get(handles,'UserData');
+            
+          
+%             h.link(1).Children.FaceVertexCData = [plyData.vertex.red, plyData.vertex.green, plyData.vertex.blue]/255;
+%            
+%             h.link(1).Children.FaceColor = 'interp';
         end
     end
 end
+
+
