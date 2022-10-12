@@ -5,7 +5,7 @@ classdef Calculations < handle
     methods
     %%% RMRC SOLVER %%%
         %% get a joint state Matrix with a Resolved Motion Rate Control
-        function [qMatrix,error] = SolveRMRC(~, robot, trajectory, qStart, stepsize, speed)
+        function [qMatrix,steps,error] = SolveRMRC(self, robot, trajectory, qStart, stepsize, speed)
             %%% CONSTANTS %%%
             WEIGHT_MATRIX = diag([1 1 1 0.1 0.1 0.1]);   % Matrix of gains for RMRC
             THRESHOLD = 0.001;                           % threshold for DLS use
@@ -19,10 +19,11 @@ classdef Calculations < handle
             qMatrix = nan(steps,6);                     % get empty matrix
             error = nan(steps,1);                       % get empty position error list
             
-            %qGuess = robot.getpos;
+            % offset trajectory with gripper- and tool-length
+            trajectory = pagemtimes(trajectory, (self.gripperUR3offset * self.toolUR3offset));
             
             
-            qMatrix(1,:) = qStart;%robot.ikine(trajectory(:,:,1),qGuess);                               % solve first qMatrix with inverse kinematics
+            qMatrix(1,:) = qStart;                                                              % solve first qMatrix with inverse kinematics
             actualTransform = robot.fkine(qMatrix(1,:));                                        % get actual pose of endeffector
             trdiff = trajectory(:,:,1) - robot.fkine(qMatrix(1,:));                             % calculate error between poses
             error(1) = sqrt(sum((trdiff(1:3,4)).^2));                                          
@@ -63,7 +64,7 @@ classdef Calculations < handle
         %% collision checking function
         function [numberCollidingPoints,collisionInfo] = CheckCollision(self, checkMatrix, robot, q)
             if nargin < 3
-                robot = [self.ur3];                 % pack all robots in an array
+                robot = [self.ur3; self.meca500];                 % pack all robots in an array
             end    
             if nargin < 4
                 for r = 1:size(robot,1)
@@ -74,22 +75,46 @@ classdef Calculations < handle
             %%% CONSTANTS %%%
             SAFETYDISTANCE = 0.01;
             % offset of center of link from joint transform "[x y z r p y]"
-            OFFSET(:,:,1) = [0      -0.0266 0       -pi/2   0       0;      % offsets of UR3
-                             0.1220 0       0.1199  -pi/2   -pi/2   0;
-                             0.1077 0       0.0208  -pi/2   -pi/2   0;
-                             0      0       0.0032  0       0       -pi;
-                             0      0       0.0027  0       0       -pi;
-                             0      0       -0.0160 0       0       -pi];
+            OFFSET_UR3 =    [0      -0.0266  0      -pi/2    0       0;      % offsets of UR3
+                             0.1220  0       0.1199 -pi/2   -pi/2    0;
+                             0.1077  0       0.0208 -pi/2   -pi/2    0;
+                             0       0       0.0032  0       0      -pi;
+                             0       0       0.0027  0       0      -pi;
+                             0       0      -0.0160  0       0      -pi];
+            OFFSET_MECA500= [0      -0.0518  0      -pi/2    0       0;     % offsets of Meca500
+                            -0.0698  0       0       0       pi/2    0;
+                             0       0       0.0168  0       0       0;
+                             0       0.0288  0       pi/2    0       0;
+                             0       0       0.0186  0       0       0;
+                             0       0      -0.0053  0       0       0];
             % shape matrix defines geometry of collision checking cage (first collumn defines shape: "1" for cylinder, "2" for prism) 
-            SHAPE(:,:,1) =  [1      0.0450  0.0450  0.2058;                 % shapes of UR3
+            SHAPE_UR3    =  [1      0.0450  0.0450  0.2058;                 % shapes of UR3
                              1      0.0549  0.0549  0.3265;
                              1      0.0487  0.0487  0.2818;
                              1      0.0315  0.0315  0.0972;
                              1      0.0315  0.0315  0.0947;
                              1      0.0315  0.0315  0.0320];
-            
-            
-                         
+            SHAPE_MECA500=  [1      0.1000  0.1000  0.1675;
+                             2      0.0999  0.0685  0.1945;
+                             2      0.0640  0.0450  0.0885;
+                             2      0.0450  0.0660  0.0800;
+                             2      0.0450  0.0460  0.0810;
+                             1      0.0305  0.0305  0.0105];
+            % copy constants into offset
+            if nargin < 3
+                OFFSET(:,:,1) = OFFSET_UR3;
+                OFFSET(:,:,2) = OFFSET_MECA500;
+                SHAPE(:,:,1) = SHAPE_UR3;
+                SHAPE(:,:,2) = SHAPE_MECA500;
+            elseif robot == self.ur3
+                OFFSET(:,:,1) = OFFSET_UR3;
+                SHAPE(:,:,1) = SHAPE_UR3;
+            elseif robot == self.meca500
+                OFFSET(:,:,1) = OFFSET_MECA500;
+                SHAPE(:,:,1) = SHAPE_MECA500;
+            end
+                             
+                                   
             % get list of points that need to be checked (chosen by checkMatrix)
             points = [];
             if ismember("table", checkMatrix)
@@ -97,7 +122,10 @@ classdef Calculations < handle
             end   
             if ismember("ur3", checkMatrix)
                 points = [points; self.ExtractRobotpoints(self.ur3)];
-            end       
+            end
+            if ismember("meca500", checkMatrix)
+                points = [points; self.ExtractRobotpoints(self.meca500)];
+            end
             
             
             % code to check collisions
@@ -106,8 +134,9 @@ classdef Calculations < handle
                 linkTransform = robot(r).base;                              % initial linkTransform is base of robot
                 for l = 1:robot(r).n                                        % iterate through every link of robot
                     linkTransform = linkTransform * trotz(q(r,l)+robot(r).links(l).offset) * transl(0,0,robot(r).links(l).d) * transl(robot(r).links(l).a,0,0) * trotx(robot(r).links(l).alpha);    % get link transform
+                    %c_h = trplot(linkTransform, 'color', 'b')
                     centerTransform(:,:) = linkTransform * transl(OFFSET(l,1,r),OFFSET(l,2,r),OFFSET(l,3,r)) * trotx(OFFSET(l,4,r)) * troty(OFFSET(l,5,r)) * trotz(OFFSET(l,6,r));                  % correct link transforms to center of link
-%                     c_h = trplot(centerTransform, 'color', 'r')
+                    %c_h = trplot(centerTransform, 'color', 'r')
                     if SHAPE(l,1,r) == 1                                    % if collision checking is cylindric
                         mask(:,l,r) = self.IsInCylinder(centerTransform,SHAPE(l,2,r),SHAPE(l,4,r),SAFETYDISTANCE,points);   % check collision of points
                     elseif SHAPE(l,1,r) == 2                                % if collision checking is prismatic
@@ -131,7 +160,7 @@ classdef Calculations < handle
         %% check if any point is inside a rectangular prism with given centerpose
         function mask = IsInRectangularPrism(~,pose,x,y,z,safetyDistance,points)
             pointsInPose = [pose\[points,ones(size(points,1),1)]']';        % update global points to local coordinate frame
-            mask = (abs(pointsInPose(:,1)) <= (x/2 + safetyDistance)) & (abs(pointsInPose(1,2)) <= (y/2 + safetyDistance)) & (abs(pointsInPose(1,3)) <= (z/2 + safetyDistance));    % conditions for collision
+            mask = (abs(pointsInPose(:,1)) <= (x/2 + safetyDistance)) & (abs(pointsInPose(:,2)) <= (y/2 + safetyDistance)) & (abs(pointsInPose(:,3)) <= (z/2 + safetyDistance));    % conditions for collision
         end
         
         %% extract global points of robot classes
@@ -180,9 +209,9 @@ classdef Calculations < handle
         function [spongePath,squeegeePath]=CalculateCleaningPaths(self, stepsize, windowpoints)
             %default window
             if nargin < 3
-                windowpoints = [0.45, 0.40,1.0;
-                                0.45,-0.20,1.0;
-                                0.45, 0.40,0.4];
+                windowpoints = [0.55, 0.40,1.0;
+                                0.55,-0.15,1.0;
+                                0.55, 0.40,0.4];
             end
             %default stepsize
             if nargin < 2
@@ -407,7 +436,7 @@ classdef Calculations < handle
         end
         
         %% move UR3 to the starting position at the window
-        function qMatrix1 = TravelUR3(self,mode,path,qStart,steps,cycle)
+        function [qMatrix1, steps] = TravelUR3(self,mode,path,qStart,steps,cycle)
             if nargin < 6
                 cycle = 1;
             end
@@ -424,13 +453,13 @@ classdef Calculations < handle
                     % waypoints as joint states
                     q(1,:) = qStart;
                     q(2,:) = self.ur3.ikcon(waypoint,self.qUR3Home);
-                    q(3,:) = self.ur3.ikcon(path(:,:,1),q(2,:));
+                    q(3,:) = self.ur3.ikcon(path(:,:,1)*(self.gripperUR3offset * self.toolUR3offset),q(2,:));
 
                 elseif cycle == 2 % robot must avoid an obstacle
                     % waypoints as joint states
                     q(1,:) = qStart;
                     q(2,:) = self.ur3.ikcon(waypoint,[-pi, self.qUR3Home(1,2:6)]);
-                    q(3,:) = self.ur3.ikcon(path(:,:,1),q(2,:));
+                    q(3,:) = self.ur3.ikcon(path(:,:,1)*(self.gripperUR3offset * self.toolUR3offset),q(2,:));
                 end
             elseif mode == "fromWindow"
                 if cycle == 1   % robot can reach its goal traditionally
