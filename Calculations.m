@@ -5,7 +5,7 @@ classdef Calculations < handle
     methods
     %%% RMRC SOLVER %%%
         %% get a joint state Matrix with a Resolved Motion Rate Control
-        function [qMatrix,error] = SolveRMRC(~, robot, trajectory, stepsize, speed)
+        function [qMatrix,error] = SolveRMRC(~, robot, trajectory, qStart, stepsize, speed)
             %%% CONSTANTS %%%
             WEIGHT_MATRIX = diag([1 1 1 0.1 0.1 0.1]);   % Matrix of gains for RMRC
             THRESHOLD = 0.001;                           % threshold for DLS use
@@ -19,10 +19,10 @@ classdef Calculations < handle
             qMatrix = nan(steps,6);                     % get empty matrix
             error = nan(steps,1);                       % get empty position error list
             
-            qGuess = robot.getpos;
+            %qGuess = robot.getpos;
             
             
-            qMatrix(1,:) = robot.getpos;%robot.ikine(trajectory(:,:,1),qGuess);                               % solve first qMatrix with inverse kinematics
+            qMatrix(1,:) = qStart;%robot.ikine(trajectory(:,:,1),qGuess);                               % solve first qMatrix with inverse kinematics
             actualTransform = robot.fkine(qMatrix(1,:));                                        % get actual pose of endeffector
             trdiff = trajectory(:,:,1) - robot.fkine(qMatrix(1,:));                             % calculate error between poses
             error(1) = sqrt(sum((trdiff(1:3,4)).^2));                                          
@@ -57,6 +57,7 @@ classdef Calculations < handle
                 error(i+1) = sqrt(sum((trdiff(1:3,4)).^2));
             end
         end
+        
         
     %%% COLLISION CHECKING %%%
         %% collision checking function
@@ -179,9 +180,9 @@ classdef Calculations < handle
         function [spongePath,squeegeePath]=CalculateCleaningPaths(self, stepsize, windowpoints)
             %default window
             if nargin < 3
-                windowpoints = [0.5, 0.40,1.0;
-                                0.5,-0.20,1.0;
-                                0.5, 0.40,0.4];
+                windowpoints = [0.45, 0.40,1.0;
+                                0.45,-0.20,1.0;
+                                0.45, 0.40,0.4];
             end
             %default stepsize
             if nargin < 2
@@ -222,7 +223,7 @@ classdef Calculations < handle
                
             %%%%% path of sponge %%%%%
             
-            spongeWidth    =  0.25;  % measurements of sponge
+            spongeWidth    =  0.2;  % measurements of sponge
             spongeLength   =  0.1;
                                     
             % 1. approach window
@@ -251,7 +252,7 @@ classdef Calculations < handle
             
             % s-shaped path
             widthSteps = floor((width-2*spongeWidth)/stepsize);   % number of straight increments between turns (width)
-            heightSteps= floor((height-spongeWidth)/spongeWidth); % number of lines (height)
+            heightSteps= floor((height)/spongeWidth); % number of lines (height)
             supposedAngle = 2*asin((stepsize/2)/(spongeWidth/2)); % optimal angle the sponge has to rotate in turns (constant velocity)
             angleSteps = floor(pi/supposedAngle);                 % number of turn steps per turn (rounded down to whole number)
             angle = pi/angleSteps;                                % "real" turn angle
@@ -347,8 +348,8 @@ classdef Calculations < handle
             
             %%%%% path of squeegee %%%%%
             
-            squeegeeWidth    =  0.10;  % measurements of squeegee
-            squeegeeLength   =  0.06;
+            squeegeeWidth    =  0.2;  % measurements of squeegee
+            squeegeeLength   =  0.03;
             
             step=1;
             startPos = windowCorner(:,:,1) * transl(squeegeeWidth/2, squeegeeLength/2, -safetyDistance) * trotz(pi/2);    % first pose of trajectory at top left corner
@@ -364,7 +365,7 @@ classdef Calculations < handle
                 step=qpSteps+step;            % update step counter
                 % move down
                 endPos = squeegeePath(:,:,step-1) * transl(height-squeegeeLength,0,0);
-                [transformTrajectory,lspbSteps] = self.GetQpTrajectory(squeegeePath(:,:,step-1),endPos,stepsize,1); % get lspb trajectory     %here
+                [transformTrajectory,lspbSteps] = self.GetLspbTrajectory(squeegeePath(:,:,step-1),endPos,stepsize);  % get lspb trajectory
                 squeegeePath(:,:,step:(lspbSteps+step-1)) = transformTrajectory;
                 step = lspbSteps+step;        % update step counter
                 % lift off window
@@ -373,21 +374,27 @@ classdef Calculations < handle
                 squeegeePath(:,:,step:(qpSteps+step-1)) = transformTrajectory;
                 step=qpSteps+step;            % update step counter
                 % move to next line
-                if i < widthSteps % move next to previos line
+                if i < widthSteps % move to next line
                     endPos = startPos * transl(0,-(i*squeegeeWidth),0);
-                    [transformTrajectory,lspbSteps] = self.GetQpTrajectory(squeegeePath(:,:,step-1),endPos,stepsize,1); % get lspb trajectory   %here
+                    [transformTrajectory,lspbSteps] = self.GetLspbTrajectory(squeegeePath(:,:,step-1),endPos,stepsize);% get lspb trajectory
                     squeegeePath(:,:,step:(lspbSteps+step-1)) = transformTrajectory;
                     step = lspbSteps+step;        % update step counter
                 elseif i < widthSteps+1           % move to right edge if not already done
                     if width/squeegeeWidth > widthSteps
                         endPos = windowCorner(:,:,2) * transl(-squeegeeWidth/2, squeegeeLength/2, -safetyDistance) * trotz(pi/2);
-                        [transformTrajectory,lspbSteps] = self.GetQpTrajectory(squeegeePath(:,:,step-1),endPos,stepsize,1); % get lspb trajectory   %here
+                        [transformTrajectory,lspbSteps] = self.GetLspbTrajectory(squeegeePath(:,:,step-1),endPos,stepsize); % get lspb trajectory
                         squeegeePath(:,:,step:(lspbSteps+step-1)) = transformTrajectory;
                         step = lspbSteps+step;        % update step counter
                     end
                 end
             end
-            
+%             % move back to top left corner
+%             endPos = startPos;
+%             [transformTrajectory,lspbSteps] = self.GetLspbTrajectory(squeegeePath(:,:,step-1),endPos,stepsize);% get lspb trajectory
+%             squeegeePath(:,:,step:(lspbSteps+step-1)) = transformTrajectory;
+%             step = lspbSteps+step;        % update step counter
+                
+                
             % plot trajectory
             plot = 0;
             if plot == 1
@@ -395,6 +402,71 @@ classdef Calculations < handle
                     %trplot(squeegeePath(:,:,i),'length',0.05, 'color', 'r');
                     plot3(squeegeePath(1,4,i),squeegeePath(2,4,i),squeegeePath(3,4,i),'r.');
 %                     pause(0.0001);
+                end
+            end
+        end
+        
+        %% move UR3 to the starting position at the window
+        function qMatrix1 = TravelUR3(self,mode,path,qStart,steps,cycle)
+            if nargin < 6
+                cycle = 1;
+            end
+            % the variable "cycle" decides which waypoints are used. If you
+            % call the function you should always use cycle = 1 or don't input any value. 
+            % If the system recognizes a collision, it runs the same function
+            % again with the alternative waypoints in cycle2
+            
+            % waypoint for trajectory
+            waypoint = self.waypointUR3;
+                
+            if mode == "toWindow"
+                if cycle == 1   % robot can reach its goal traditionally
+                    % waypoints as joint states
+                    q(1,:) = qStart;
+                    q(2,:) = self.ur3.ikcon(waypoint,self.qUR3Home);
+                    q(3,:) = self.ur3.ikcon(path(:,:,1),q(2,:));
+
+                elseif cycle == 2 % robot must avoid an obstacle
+                    % waypoints as joint states
+                    q(1,:) = qStart;
+                    q(2,:) = self.ur3.ikcon(waypoint,[-pi, self.qUR3Home(1,2:6)]);
+                    q(3,:) = self.ur3.ikcon(path(:,:,1),q(2,:));
+                end
+            elseif mode == "fromWindow"
+                if cycle == 1   % robot can reach its goal traditionally
+                    % waypoints as joint states
+                    q(1,:) = qStart;
+                    q(2,:) = self.ur3.ikcon(waypoint,self.qUR3Home);
+                    q(3,:) = self.qUR3Home;
+
+                elseif cycle == 2 % robot must avoid an obstacle
+                    % waypoints as joint states
+                    q(1,:) = qStart;
+                    q(2,:) = self.ur3.ikcon(waypoint,[-pi, self.qUR3Home(1,2:6)]);
+                    q(3,:) = self.qUR3Home;
+                end
+            end
+            
+            partSteps = floor(steps/(size(q,1)-1));         % split number of steps between waypoints
+            qMatrix1 = nan(partSteps*(size(q,1)-1),6);     % allocate empty array
+            
+            
+            % iterate through waypoints and get lspb trajectory
+            for i=1:size(q,1)-1
+                s = lspb(0,1,partSteps);                    % linear segment wit parabolic blend
+                for j = 1:partSteps
+                    qMatrix1(((i-1)*partSteps+j),:) = (1-s(j))*q(i,:) + s(j)*q(i+1,:);  % get qMatrix with lspb
+                end
+            end
+            
+            % check for collisions
+            if cycle == 1   % just used for initial cycle
+                for i = 1:10:(size(q,1)-1)*partSteps    % take every 10th step
+                    numberOfCollidingPoints = CheckCollision(self, "table", self.ur3, qMatrix1(i,:));   % call collision checking function
+                    if numberOfCollidingPoints > 0
+                        qMatrix1 = self.TravelUR3(mode,path,qStart,steps,2);   % if collision recognized call function again with cycle = 2
+                        return;
+                    end
                 end
             end
         end

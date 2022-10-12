@@ -8,7 +8,7 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
 
 
         %UR3%
-        qUR3Home = [-1.5708 -1.5539 -2.2649 -0.8937 1.5708 0];
+        qUR3Home = [0 -1.5539 -2.2649 -0.8937 1.5708 0];
         trUR3Home = [-1 0  0  0;
                       0 1  0 -0.135;
                       0 0 -1  0.6;
@@ -33,8 +33,8 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
         function UpdatePosition(self)
             self.table.base = self.base;                                % move the table to desired pose
             self.table.animate(0);                                      % plot table
-            self.ur3.base = self.base * transl(0.1124, 0.1124, 0.42);   % put the UR3 on top of the table
-            q = [-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0];%self.ur3.getpos;                                        % get current joint configuration
+            self.ur3.base = self.base * transl(0.1124, 0.1124, 0.42)*trotz(-pi/2);   % put the UR3 on top of the table
+            q = self.qUR3Home;%self.ur3.getpos;                                        % get current joint configuration
             self.ur3.animate(q);                                        % plot the same joint configuration at new pose
             self.meca500.base = self.base * transl(-0.1, 0, 0.05);      % put the Meca500 in the bottom shelf
             q = self.meca500.getpos;                                    % get current joint configuration
@@ -82,62 +82,65 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
             end
         end
         
-        %% move robot through waypoints
+        %% play the window cleaning program
         function CleanWindow(self)
-            [spongePath,squeegeePath]=self.CalculateCleaningPaths(0.01);
+            % get transform trajectory of the cleaning path at the window
+            % input: stepsize
+            [spongePath,squeegeePath] = self.CalculateCleaningPaths(0.01);
             
-            waypoints(:,:,1) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]);
-            waypoints(:,:,2) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]) * transl(0,0,-0.1);
-            waypoints(:,:,3) = self.waypointUR3;
-            waypoints(:,:,4) = spongePath(:,:,1);
-            path1 = self.GetWaypointTrajectory(waypoints, 100);
+            qUR3Matrix = [];
             
-            waypoints(:,:,1) = spongePath(:,:,end);
-            waypoints(:,:,2) = self.waypointUR3 * transl(0,0,0.1);
-            waypoints(:,:,3) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]) * transl(0,0,-0.1);
-            waypoints(:,:,4) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]);
-            path2 = self.GetWaypointTrajectory(waypoints, 100);
+            qUR3Matrix = [qUR3Matrix; self.TravelUR3("toWindow", spongePath, self.qUR3Home, 100)];
+            qUR3Matrix = [qUR3Matrix; self.SolveRMRC(self.ur3, spongePath, qUR3Matrix(end,:), 0.01, 1)];
+            qUR3Matrix = [qUR3Matrix; self.TravelUR3("fromWindow", spongePath, qUR3Matrix(end,:), 100)];
+            qUR3Matrix = [qUR3Matrix; self.TravelUR3("toWindow", squeegeePath, qUR3Matrix(end,:), 100)];
+            qUR3Matrix = [qUR3Matrix; self.SolveRMRC(self.ur3, squeegeePath, qUR3Matrix(end,:), 0.01, 1)];
+            qUR3Matrix = [qUR3Matrix; self.TravelUR3("fromWindow", squeegeePath, qUR3Matrix(end,:), 100)];
             
-            
-            qMatrix = self.SolveRMRC(self.ur3, path1, 0.01, 1);
-            for i=1:size(qMatrix,1)
-                self.ur3.animate(qMatrix(i,:));
+            for i = 1:size(qUR3Matrix,1)
+                self.ur3.animate(qUR3Matrix(i,:));
                 pause(0.001);
             end
-            pause;
-            
-            qMatrix = self.SolveRMRC(self.ur3, spongePath, 0.01, 1);
-            for i=1:size(qMatrix,1)
-                self.ur3.animate(qMatrix(i,:));
-                pause(0.001);
-            end
-            pause;
-            
-            qMatrix = self.SolveRMRC(self.ur3, path2, 0.01, 1);
-            for i=1:size(qMatrix,1)
-                self.ur3.animate(qMatrix(i,:));
-                pause(0.001);
-            end
-            pause;
         end
+         %% move robot through waypoints
+%         function CleanWindow(self)
+%             [spongePath,squeegeePath]=self.CalculateCleaningPaths(0.01);
+%             
+%             waypoints(:,:,1) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]);
+%             waypoints(:,:,2) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]) * transl(0,0,-0.1);
+%             waypoints(:,:,3) = self.waypointUR3;
+%             waypoints(:,:,4) = spongePath(:,:,1);
+%             path1 = self.GetWaypointTrajectory(waypoints, 100);
+%             
+%             waypoints(:,:,1) = spongePath(:,:,end);
+%             waypoints(:,:,2) = self.waypointUR3 * transl(0,0,0.1);
+%             waypoints(:,:,3) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]) * transl(0,0,-0.1);
+%             waypoints(:,:,4) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]);
+%             path2 = self.GetWaypointTrajectory(waypoints, 100);
+%             
+%             
+%             qMatrix = self.SolveRMRC(self.ur3, path1, 0.01, 1);
+%             for i=1:size(qMatrix,1)
+%                 self.ur3.animate(qMatrix(i,:));
+%                 pause(0.001);
+%             end
+%             pause;
+%             
+%             qMatrix = self.SolveRMRC(self.ur3, spongePath, 0.01, 1);
+%             for i=1:size(qMatrix,1)
+%                 self.ur3.animate(qMatrix(i,:));
+%                 pause(0.001);
+%             end
+%             pause;
+%             
+%             qMatrix = self.SolveRMRC(self.ur3, path2, 0.01, 1);
+%             for i=1:size(qMatrix,1)
+%                 self.ur3.animate(qMatrix(i,:));
+%                 pause(0.001);
+%             end
+%             pause;
+%         end
+%         
         
-        %% move UR3 to the starting position at the window
-        function qMatrix = MoveUR3toWindow(self,startPos,steps)
-            waypoints(:,:,1) = self.trUR3Home;
-            waypoints(:,:,2) = self.waypointUR3;
-            waypoints(:,:,3) = startPos;
-            
-            qGuess = self.qUR3Home;
-            qMatrix = nan(2*steps,6);
-            
-            for i=1:size(waypoints,3)-1
-                q1 = self.ur3.ikcon(waypoints(:,:,i),qGuess);
-                q2 = self.ur3.ikcon(waypoints(:,:,i+1),qGuess);
-                
-                qMatrix(((i-1)*steps+1):(i*steps),:) = jtraj(q1,q2,steps);
-                
-                qGuess = qMatrix((i*steps),:);
-            end
-        end
     end
 end
