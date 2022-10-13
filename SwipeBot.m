@@ -1,8 +1,8 @@
-classdef SwipeBot < UR3 & MECA500 & Table & Calculations
+classdef SwipeBot < UR3 & MECA500 & Table & Calculations & Hand
     
     properties
         base = eye(4);
-        workspace = [-0.5 0.5 -0.5 0.5 0 1]
+        workspace = [-0.5 0.5 -0.5 0.5 0 1.1]
         toolChangeTr = transl(0,-0.15,0.4) * troty(-pi);
     end
 
@@ -19,6 +19,9 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
         
         % Meca 500 %
         qMeca500Home = [0 0 0 0 0 0];
+        
+        % Hand %
+        handPos1 = transl(0.15, -0.2, 0.6) * trotz(pi) * trotx(pi/2);
     end
     
     methods
@@ -32,6 +35,13 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
             
             self.UpdatePosition();  %update the position of the new generated elements
             
+            % open App if not already open
+            if isempty(findall(0,'Name','SwipeBotApp'))
+                app = SwipeBotApp;
+                assignin('base', "app", app);
+            end
+            % print Info
+            app.TextArea.Value = "SwipeBot-System ist ready to use.";
         end
         
         %% Update all elements to the desired pose of the SwipeBot
@@ -44,6 +54,8 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
             self.meca500.base = self.base * transl(-0.1, 0, 0.05);      % put the Meca500 in the bottom shelf
             q = self.meca500.getpos;                                    % get current joint configuration
             self.meca500.animate(q);                                    % plot the same joint configuration at new pose
+            self.hand.base = self.handPos1;
+            %self.hand.animate(0);
         end
     end
     
@@ -52,7 +64,7 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
     % refer to Calculations.m to find the big calculation programms
     
         %% function homes all robots
-        function MoveTo(self, choice)
+        function MoveTo(self, choice, app)
             % predefine jointstates
             % UR3
             qUR3 = self.ur3.getpos;
@@ -66,6 +78,7 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
             
             % move to home position
             if choice == "home"
+                app.TextArea.Value = "Move both robots to home position.";
                 % UR3
                 if 0.0001 > self.ur3.getpos - qUR3Store                         % if robot is in "store" position...
                     qMatrixUR3 = jtraj(qUR3Store,qUR3PreStore,50);              % move robot to waypoint
@@ -78,6 +91,7 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
             end
             
             if choice == "store"
+                app.TextArea.Value = "Move both robots to store position.";
                 % UR3
                 if (0.0001 < sum(self.ur3.getpos - qUR3Home)) || (0.0001 < sum(self.meca500.getpos - qMeca500Home)) % if robot is NOT at home position...
                     self.MoveTo("home");                                        % move robot there first
@@ -95,17 +109,19 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
                         disp("Damn, I hit something! Press enter to continue...")
                         pause
                     end
-                    pause(0.01);
+                    pause(0.001);
             end
         end
         
         %% play the window cleaning program
-        function CleanWindow(self)
+        function CleanWindow(self,app)
             fprintf("\nLet me calculate the trajectories...\n\n");
+            app.TextArea.Value = "Calculating trajectories...";
+            drawnow;
             
             % get transform trajectory of the cleaning path at the window
             % input: stepsize
-            [spongePath,squeegeePath] = self.CalculateCleaningPaths(0.01);
+            [spongePath,squeegeePath] = self.CalculateCleaningPaths(app, 0.01);
             
             % calculate qMatrix for every movement            
             [qUR3Matrix1, qUR3Steps1] = self.TravelUR3("toWindow", spongePath, self.qUR3Home, 100);
@@ -129,27 +145,71 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations
                     fprintf(["\nWhile working I'm going to collide with something! :-( \n",...
                              "Please remove the obstacles, so I can do my job. \n",...
                              "If everything is clear press any key and I will start cleaning :-)\n"]);
+                    app.TextArea.Value = [app.TextArea.Value;
+                                          " ";
+                                          "A collision was detected that can't be avoided.";
+                                          "Please remove the obstacles from the workspace.";
+                                          "If everything is clear press any key and the cleaning process will start."];
                     pause;
                     break;
                 end
             end
-            
-            fprintf("\nLet's get started!\n");
-            
+                                                                                                          
             % home both robots if not already done
-            if (0.0001 < sum(self.ur3.getpos - self.qUR3Home)) || (0.0001 < sum(self.meca500.getpos - self.qMeca500Home))
+            if (0.0001 < sum((self.ur3.getpos - self.qUR3Home).^2)) || (0.0001 < sum((self.meca500.getpos - self.qMeca500Home).^2))
+                fprintf("\nI'll home everything first to be sure everything is ready.\n")
+                app.TextArea.Value = [app.TextArea.Value;
+                                      " ";
+                                      "Home all systems."];
                 self.MoveTo("home");
             end
-                      
+            
+            fprintf("\nLet's get started!\n");
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  "Cleaning Process started."];
+            
+            slow = 0;   % flag for reduced speed
             for i = 1:size(qUR3Matrix,1)
+                if self.CheckWorkspace
+                    if slow == 0
+                        fprintf("Something is close. I go slower now");
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "Close obstacle detected.";
+                                              "Going on with reduced speed"];
+                        slow = 1;
+                    end
+                    pause(0.05);
+                elseif slow == 1
+                    fprintf("Everything clear again. Let's speed up.");
+                    app.TextArea.Value = [app.TextArea.Value;
+                                          " ";
+                                          "Workspace is clear again.";
+                                          "Going on with full speed"];
+                    slow = 0;
+                end
+                
                 self.ur3.animate(qUR3Matrix(i,:));
+                if app.EmergencyStopButton.Value
+                    if ~app.EmergencyStopButton.Value
+                    end
+                end
                 drawnow;
 %                 pause(0.001);
             end
             
             fprintf("\nFinished! The window is clean.\n");
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  "Cleaning-Process finished.";
+                                  "Enjoy your clean windows."];
         end
         
+        %% test 
+        function Test(self, app)
+            app.TextArea.Value = ["Test";"another Test"];
+        end
          %% move robot through waypoints
 %         function CleanWindow(self)
 %             [spongePath,squeegeePath]=self.CalculateCleaningPaths(0.01);

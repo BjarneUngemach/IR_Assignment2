@@ -80,7 +80,7 @@ classdef Calculations < handle
                              0.1077  0       0.0208 -pi/2   -pi/2    0;
                              0       0       0.0032  0       0      -pi;
                              0       0       0.0027  0       0      -pi;
-                             0       0      -0.0160  0       0      -pi];
+                             0       0      -0.0358  0       0      -pi];
             OFFSET_MECA500= [0      -0.0518  0      -pi/2    0       0;     % offsets of Meca500
                             -0.0698  0       0       0       pi/2    0;
                              0       0       0.0168  0       0       0;
@@ -93,7 +93,7 @@ classdef Calculations < handle
                              1      0.0487  0.0487  0.2818;
                              1      0.0315  0.0315  0.0972;
                              1      0.0315  0.0315  0.0947;
-                             1      0.0315  0.0315  0.0320];
+                             1      0.0315  0.0315  0.1395];
             SHAPE_MECA500=  [1      0.1000  0.1000  0.1675;
                              2      0.0999  0.0685  0.1945;
                              2      0.0640  0.0450  0.0885;
@@ -126,6 +126,9 @@ classdef Calculations < handle
             if ismember("meca500", checkMatrix)
                 points = [points; self.ExtractRobotpoints(self.meca500)];
             end
+            if ismember("hand", checkMatrix)
+                points = [points; self.ExtractRobotpoints(self.hand)];
+            end
             
             
             % code to check collisions
@@ -151,6 +154,17 @@ classdef Calculations < handle
             numberCollidingPoints = size(unique(collisionInfo(:,1)),1);     % count number of colliding points
         end
         
+        %% check if something is near the swipebot system
+        function numberCollidingPoints = CheckWorkspace(self)%, robot)
+            sphereCenter = self.table.base * transl(0,0,0.42);
+            radius = 0.8;
+            safetyDistance = 0;
+            
+            points = [1 0 0];%self.ExtractRobotpoints(robot);
+            
+            numberCollidingPoints = self.IsInEllipsoid(sphereCenter,radius,radius,radius,safetyDistance,points);
+        end
+        
         %% check if any point is inside a cylinder with given centerpose
         function mask = IsInCylinder(~,pose,radius,height,safetyDistance,points)
             pointsInPose = [pose\[points,ones(size(points,1),1)]']';        % update global points to local coordinate frame
@@ -161,6 +175,12 @@ classdef Calculations < handle
         function mask = IsInRectangularPrism(~,pose,x,y,z,safetyDistance,points)
             pointsInPose = [pose\[points,ones(size(points,1),1)]']';        % update global points to local coordinate frame
             mask = (abs(pointsInPose(:,1)) <= (x/2 + safetyDistance)) & (abs(pointsInPose(:,2)) <= (y/2 + safetyDistance)) & (abs(pointsInPose(:,3)) <= (z/2 + safetyDistance));    % conditions for collision
+        end
+        
+        %% check if any point is inside a ellipsoid
+        function mask = IsInEllipsoid(~,pose,rx,ry,rz,safetyDistance,points)
+            pointsInPose = [pose\[points,ones(size(points,1),1)]']';
+            mask = (((pointsInPose(:,1)+safetyDistance)/rx).^2 + ((pointsInPose(:,2)+safetyDistance)/ry).^2 + ((pointsInPose(:,3)+safetyDistance)/rz).^2) <= 1;
         end
         
         %% extract global points of robot classes
@@ -206,15 +226,15 @@ classdef Calculations < handle
         end
         
         %% given three corner points of the window (top left, top right, bottom left) calculate the trajectory at the window
-        function [spongePath,squeegeePath]=CalculateCleaningPaths(self, stepsize, windowpoints)
+        function [spongePath,squeegeePath]=CalculateCleaningPaths(self, app, stepsize, windowpoints)
             %default window
-            if nargin < 3
+            if nargin < 4
                 windowpoints = [0.55, 0.40,1.0;
                                 0.55,-0.15,1.0;
                                 0.55, 0.40,0.4];
             end
             %default stepsize
-            if nargin < 2
+            if nargin < 3
                 stepsize = 0.005;    % distance between two transforms in trajectory
             end
             
@@ -228,6 +248,13 @@ classdef Calculations < handle
             height = sqrt(sum((windowpoints(3,:)' - windowpoints(1,:)').^2));   % height of window
             disp(['The width of the window  is ', num2str(width), ' m']);
             disp(['The height of the window is ', num2str(height), ' m']);
+            str1 = sprintf('The width of the window is %.3f m',width);
+            str2 = sprintf('The height of the window is %.3f m',height);
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  str1;
+                                  str2];
+            drawnow;
             
             widthVector  = unit(windowpoints(2,:)' - windowpoints(1,:)');       % unit vector along window width
             heightVector = unit(windowpoints(3,:)' - windowpoints(1,:)');       % unit vector along window height
@@ -458,7 +485,7 @@ classdef Calculations < handle
                 elseif cycle == 2 % robot must avoid an obstacle
                     % waypoints as joint states
                     q(1,:) = qStart;
-                    q(2,:) = self.ur3.ikcon(waypoint,[-pi, self.qUR3Home(1,2:6)]);
+                    q(2,:) = deg2rad([-270 -90 -140 50 90 0]);
                     q(3,:) = self.ur3.ikcon(path(:,:,1)*(self.gripperUR3offset * self.toolUR3offset),q(2,:));
                 end
             elseif mode == "fromWindow"
@@ -471,7 +498,7 @@ classdef Calculations < handle
                 elseif cycle == 2 % robot must avoid an obstacle
                     % waypoints as joint states
                     q(1,:) = qStart;
-                    q(2,:) = self.ur3.ikcon(waypoint,[-pi, self.qUR3Home(1,2:6)]);
+                    q(2,:) = deg2rad([-270 -90 -140 50 90 0]);
                     q(3,:) = self.qUR3Home;
                 end
             end
@@ -490,11 +517,14 @@ classdef Calculations < handle
             
             % check for collisions
             if cycle == 1   % just used for initial cycle
-                for i = 1:10:(size(q,1)-1)*partSteps    % take every 10th step
-                    numberOfCollidingPoints = CheckCollision(self, "table", self.ur3, qMatrix1(i,:));   % call collision checking function
-                    if numberOfCollidingPoints > 0
-                        qMatrix1 = self.TravelUR3(mode,path,qStart,steps,2);   % if collision recognized call function again with cycle = 2
-                        return;
+                if ~isempty(findobj('Tag', self.hand.name))
+                    for i = 1:10:(size(q,1)-1)*partSteps    % take every 10th step
+                        numberOfCollidingPoints = CheckCollision(self, "hand", self.ur3, qMatrix1(i,:));   % call collision checking function
+                        if numberOfCollidingPoints > 0
+                            steps = 200;
+                            qMatrix1 = self.TravelUR3(mode,path,qStart,steps,2);   % if collision recognized call function again with cycle = 2
+                            return;
+                        end
                     end
                 end
             end
