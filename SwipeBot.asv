@@ -106,7 +106,6 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
             for step = 1:size(qMatrixUR3,1)                                     % animate robot movement
                     self.ur3.animate(qMatrixUR3(step,:));
                     self.meca500.animate(qMatrixMeca500(step,:));
-                    self.UpdateGripper3F;
                     if (self.CheckCollision("table", self.ur3) > 0) || (self.CheckCollision("table", self.meca500) > 0)% check for collision
                         disp("Damn, I hit something! Press enter to continue...")
                         pause
@@ -193,7 +192,6 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
                 end
                 
                 self.ur3.animate(qUR3Matrix(i,:));
-                self.UpdateGripper3F("open");
                 if app.EmergencyStopButton.Value
                     if ~app.EmergencyStopButton.Value
                     end
