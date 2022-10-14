@@ -51,7 +51,7 @@ classdef SwipeBot < UR3 & MECA500 & Table & Calculations & Hand
             self.ur3.base = self.base * transl(0.1124, 0.1124, 0.42)*trotz(-pi/2);   % put the UR3 on top of the table
             q = self.qUR3Home;%self.ur3.getpos;                                        % get current joint configuration
             self.ur3.animate(q);                                        % plot the same joint configuration at new pose
-            self.meca500.base = self.base * transl(-0.1, 0, 0.05);      % put the Meca500 in the bottom shelf
+            self.meca500.base = self.base * transl(-0, 0.15, 0.05) * trotz(-pi/2);      % put the Meca500 in the bottom shelf
             q = self.meca500.getpos;                                    % get current joint configuration
             self.meca500.animate(q);                                    % plot the same joint configuration at new pose
             self.hand.base = self.handPos1;
