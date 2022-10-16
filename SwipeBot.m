@@ -1,4 +1,4 @@
-classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
+classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table & Sponge & Squeegee & Hand
     
     properties
         base = eye(4);
@@ -14,7 +14,7 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
                       0 0 -1  0.6;
                       0 0  0  1];
         waypointUR3 = transl(0.2353,0,0.830) * trotz(-pi/2) * trotx(-pi/2);
-        gripperUR3offset = transl(0,0,-0.08);
+        gripperUR3offset = transl(0,0,-0.0590);
         toolUR3offset = eye(4)
         
         % Meca 500 %
@@ -55,6 +55,9 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
             q = self.meca500.getpos;                                    % get current joint configuration
             self.meca500.animate(q);                                    % plot the same joint configuration at new pose
             self.UpdateGripper3F;
+            self.UpdateGripper2F;
+            self.UpdateSponge(self.spongeHome);
+            self.UpdateSqueegee(self.squeegeeHome);
             self.hand.base = self.handPos1;
             %self.hand.animate(0);
         end
@@ -193,7 +196,7 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
                 end
                 
                 self.ur3.animate(qUR3Matrix(i,:));
-                self.UpdateGripper3F("open");
+                self.UpdateGripper3F;
                 if app.EmergencyStopButton.Value
                     if ~app.EmergencyStopButton.Value
                     end

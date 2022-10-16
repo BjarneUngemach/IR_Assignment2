@@ -26,7 +26,7 @@ classdef Table < handle
         % colour them in if data is available 
         function PlotAndColourTable(self)
             % load data from .ply file
-            [ faceData, vertexData, plyData] = plyread('Table.ply','tri');                
+            [faceData, vertexData, plyData] = plyread('Table.ply','tri');                
             self.table.faces = {faceData, []};
             self.table.points = {[vertexData(:,1),vertexData(:,2),vertexData(:,3)], []};
             

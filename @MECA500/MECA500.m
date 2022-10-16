@@ -18,8 +18,8 @@ classdef MECA500 < handle
         function GetMeca500Robot(self)
             name = 'Meca500';
             L1 = Link('d',0.135,'a',0,'alpha',pi/2,'qlim',deg2rad([-175 175]), 'offset',0);
-            L2 = Link('d',0,'a',0.135,'alpha',0,'qlim', deg2rad([-70 90]), 'offset',pi/2);
-            L3 = Link('d',0,'a',0.038,'alpha',pi/2,'qlim', deg2rad([-135 70]), 'offset', 0);
+            L2 = Link('d',0,'a',0.135,'alpha',0,'qlim', deg2rad([-90 70]), 'offset',pi/2);
+            L3 = Link('d',0,'a',0.038,'alpha',pi/2,'qlim', deg2rad([-70 135]), 'offset', 0);
             L4 = Link('d',0.12,'a',0,'alpha',-pi/2,'qlim',deg2rad([-170 170]),'offset', 0);
             L5 = Link('d',0,'a',0,'alpha',pi/2,'qlim',deg2rad([-115 115]), 'offset',0);
             L6 = Link('d',0.07,'a',0,'alpha',0,'qlim',deg2rad([-360,360]), 'offset', 0);
