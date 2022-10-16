@@ -12,16 +12,17 @@ classdef Gripper2F < handle
         g2FBase = eye(4);
         
         %status of gripper
-        g2FStatus = "open";
-        workspace = [-0.1 0.1 -0.1 0.1 -0.2 0.2]
+        g2FStatus = "close";
+%         workspace = [-0.1 0.1 -0.1 0.1 -0.2 0.2]
         dx = 0.019;
         dz = 0.03;
+        qstart = -0.02; %closed / open = 0
     end
     
     methods
         %% object structors
         function self = Gripper2F()
-            
+%             clf %%temp
             self.GetGripper2F;
             self.PlotAndColourGripper2F;
 
@@ -30,15 +31,15 @@ classdef Gripper2F < handle
         
         %% Get Gripper3F Model
         function GetGripper2F(self)
-            L1 = Link('theta',0,'a',0,'alpha',0,'prismatic','qlim',[-0.02 0],'offset',0); % PRISMATIC Link
+            L1 = Link('theta',0,'a',0,'alpha',0,'prismatic','qlim',[-0.2 0],'offset',0); % PRISMATIC Link
             
             for i = 1:2
                 name = ['g2Finger',num2str(i)];
                 self.g2Finger{i} = SerialLink(L1,'name',name);
             end
             
-            self.g2Finger{1}.base = self.g2FBase * trotz(180,'deg')*transl(self.dx, 0, self.dz) ;
-            self.g2Finger{2}.base = self.g2FBase * transl(-self.dx, 0, self.dz);
+            self.g2Finger{1}.base = self.g2FBase * trotx(-90,'deg')*transl(self.dx, 0, self.dz) ;
+            self.g2Finger{2}.base = self.g2FBase * trotz(180,'deg')*transl(self.dx,1.7*self.dz, 0)*trotx(3*pi/2);
         end
         
         %% Plot and Colour Gripper3F
@@ -56,7 +57,7 @@ classdef Gripper2F < handle
                     end
                 
                     % Display gripper with 3D shape
-                    self.g2Finger{i}.plot3d(0,'noarrow','workspace',self.workspace);
+                    self.g2Finger{i}.plot3d(self.qstart,'noarrow','workspace',self.workspace);
                     if isempty(findobj(get(gca,'Children'),'Type','Light'))
                         camlight
                     end
@@ -85,7 +86,7 @@ classdef Gripper2F < handle
                     end
                     
                     % Display gripper with 3D shape
-                    self.g2Finger{i}.plot3d(0,'noarrow','workspace',self.workspace);
+                    self.g2Finger{i}.plot3d(self.qstart,'noarrow','workspace',self.workspace);
                     if isempty(findobj(get(gca,'Children'),'Type','Light'))
                         camlight
                     end
@@ -114,16 +115,16 @@ classdef Gripper2F < handle
         function UpdateGripper2F(self)
             
             % change base of gripper to given pose
-            self.g2FBase = self.ur3.fkine(self.ur3.getpos);
+            self.g2FBase = self.Meca500.fkine(self.Meca500.getpos);
                                     
             % update base of every finger
-            self.g2Finger{1}.base = self.g2FBase * transl(self.dx, 0, self.dz) ;
-            self.g2Finger{2}.base = self.g2FBase * transl(-self.dx, 0, self.dz);
+            self.g2Finger{1}.base = self.g2FBase * trotx(-90,'deg')*transl(self.dx, 0, self.dz) ;
+            self.g2Finger{2}.base = self.g2FBase * trotz(180,'deg')*transl(self.dx,1.7*self.dz, 0)*trotx(3*pi/2);
             
             if self.g2FStatus == "close"
-                q = 0;
-            elseif self.g2FStatus == "open"
                 q = -0.02;
+            elseif self.g2FStatus == "open"
+                q = 0;
             end
             
             % plot updated gripper
