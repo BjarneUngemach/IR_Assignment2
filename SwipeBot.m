@@ -1,4 +1,4 @@
-classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
+classdef SwipeBot < UR3 & MECA500 & Gripper3F & Gripper2F & Table & Calculations & Hand
     
     properties
         base = eye(4);
@@ -55,6 +55,7 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
             q = self.meca500.getpos;                                    % get current joint configuration
             self.meca500.animate(q);                                    % plot the same joint configuration at new pose
             self.UpdateGripper3F;
+            self.UpdateGripper2F;
             self.hand.base = self.handPos1;
             %self.hand.animate(0);
         end
@@ -107,6 +108,7 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Table & Calculations & Hand
                     self.ur3.animate(qMatrixUR3(step,:));
                     self.meca500.animate(qMatrixMeca500(step,:));
                     self.UpdateGripper3F;
+                    self.UpdateGripper2F;
                     if (self.CheckCollision("table", self.ur3) > 0) || (self.CheckCollision("table", self.meca500) > 0)% check for collision
                         disp("Damn, I hit something! Press enter to continue...")
                         pause
