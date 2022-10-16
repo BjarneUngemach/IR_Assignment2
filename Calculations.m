@@ -3,23 +3,206 @@ classdef Calculations < handle
     
     
     methods
-        %% collision checking
-        function CheckCollision(robot,q)
+    %%% RMRC SOLVER %%%
+        %% get a joint state Matrix with a Resolved Motion Rate Control
+        function [qMatrix,steps,error] = SolveRMRC(self, robot, trajectory, qStart, stepsize, speed)
+            %%% CONSTANTS %%%
+            WEIGHT_MATRIX = diag([1 1 1 0.1 0.1 0.1]);   % Matrix of gains for RMRC
+            THRESHOLD = 0.001;                           % threshold for DLS use
+            MAX_DAMPING = 0.01;                          % max damping factor of DLS
+            
+            
+            deltaT = stepsize/speed;                    % get timestep for wanted velocity
+            steps = size(trajectory,3);                 % get number of steps in trajectory
+            
+            % allocate arrays
+            qMatrix = nan(steps,6);                     % get empty matrix
+            error = nan(steps,1);                       % get empty position error list
+            
+            % offset trajectory with gripper- and tool-length
+            trajectory = pagemtimes(trajectory, (self.gripperUR3offset * self.toolUR3offset));
+            
+            
+            qMatrix(1,:) = qStart;                                                              % solve first qMatrix with inverse kinematics
+            actualTransform = robot.fkine(qMatrix(1,:));                                        % get actual pose of endeffector
+            trdiff = trajectory(:,:,1) - robot.fkine(qMatrix(1,:));                             % calculate error between poses
+            error(1) = sqrt(sum((trdiff(1:3,4)).^2));                                          
+            
+            for i = 1:steps-1
+                posdot = (trajectory(1:3,4,i+1) - actualTransform(1:3,4))/deltaT;               % Calculate linear velocities (x, y, z) to next step
+                skewOmega = (trajectory(1:3,1:3,i+1)*actualTransform(1:3,1:3)' - eye(3))/deltaT;% Calculate skew-symmetric matrix of omega to get angular velocities
+                rotdot = [skewOmega(3,2);skewOmega(1,3);skewOmega(2,1)];                        % Extract angular velocities (roll, pitch, yaw) between steps
+                xdot = WEIGHT_MATRIX * [posdot;rotdot];                                         % concatinate linear and angular velocity and implement a gain factor
+                
+                J = robot.jacob0(qMatrix(i,:));                                                 % Get the Jacobian at the current state
+                manipulability = sqrt(det(J*J'));                                               % calculate manipulability
+                if manipulability < THRESHOLD                                                   % If manipulability is less than given threshold
+                    dampingFactor = (1 - (manipulability/THRESHOLD)^2) * MAX_DAMPING;           % determine damping factor of DLS
+                    qdot = ((J'*J + dampingFactor*eye(6))\J')*xdot;                             % Get joint velocities with Damped Least Squares Optimization
+                    disp("DLS used");
+                else
+                    qdot = J\xdot;                                                              % Solve for joint velocitities via RMRC
+                end
+                
+                for j = 1:6                                                                     % Loop through joints 1 to 6
+                    if qMatrix(i+1,j) + deltaT*qdot(j) < robot.qlim(j,1)                        % If next joint angle is lower than joint limit...
+                        qdot(j) = 0;                                                            % Stop the motor
+                    elseif qMatrix(i,j) + deltaT*qdot(j) > robot.qlim(j,2)                      % If next joint angle is greater than joint limit ...
+                        qdot(j) = 0;                                                            % Stop the motor
+                    end
+                end
+                qMatrix(i+1,:) =  qMatrix(i,:) + deltaT*qdot';                                  % Get next joint state
+                
+                actualTransform = robot.fkine(qMatrix(i+1,:));                                  % get actual pose of endeffector
+                trdiff = trajectory(:,:,i+1) - actualTransform;                                 % calculate error between poses
+                error(i+1) = sqrt(sum((trdiff(1:3,4)).^2));
+            end
         end
         
-        function IsInCylinder(self,pose,points)%radius,height,safetyDistance,points)
-            for i = 1:size(points,1)
-                 transform = inv(pose) * transl(points(i,1),points(i,2),points(i,3));
-                 pointsInPose(i,:) = transform(1:3,4)';
+        
+    %%% COLLISION CHECKING %%%
+        %% collision checking function
+        function [numberCollidingPoints,collisionInfo] = CheckCollision(self, checkMatrix, robot, q)
+            if nargin < 3
+                robot = [self.ur3; self.meca500];                 % pack all robots in an array
+            end    
+            if nargin < 4
+                for r = 1:size(robot,1)
+                    q(r,:) = robot(r).getpos;       % get current joint state for every robot
+                end
             end
-                         
-            mask = zeros(size(points,1),1);
-            for i = 1:size(points,1)
-                if (abs(points(1,3)) < height/2) && (sqrt(points(i,1)^2 + points(i,2)^2) < radius)
-                    mask(i,1) = 1;
-                end                    
+            
+            %%% CONSTANTS %%%
+            SAFETYDISTANCE = 0.01;
+            % offset of center of link from joint transform "[x y z r p y]"
+            OFFSET_UR3 =    [0      -0.0266  0      -pi/2    0       0;      % offsets of UR3
+                             0.1220  0       0.1199 -pi/2   -pi/2    0;
+                             0.1077  0       0.0208 -pi/2   -pi/2    0;
+                             0       0       0.0032  0       0      -pi;
+                             0       0       0.0027  0       0      -pi;
+                             0       0      -0.0358  0       0      -pi];
+            OFFSET_MECA500= [0      -0.0518  0      -pi/2    0       0;     % offsets of Meca500
+                            -0.0698  0       0       0       pi/2    0;
+                             0       0       0.0168  0       0       0;
+                             0       0.0288  0       pi/2    0       0;
+                             0       0       0.0186  0       0       0;
+                             0       0      -0.0053  0       0       0];
+            % shape matrix defines geometry of collision checking cage (first collumn defines shape: "1" for cylinder, "2" for prism) 
+            SHAPE_UR3    =  [1      0.0450  0.0450  0.2058;                 % shapes of UR3
+                             1      0.0549  0.0549  0.3265;
+                             1      0.0487  0.0487  0.2818;
+                             1      0.0315  0.0315  0.0972;
+                             1      0.0315  0.0315  0.0947;
+                             1      0.0315  0.0315  0.1395];
+            SHAPE_MECA500=  [1      0.1000  0.1000  0.1675;
+                             2      0.0999  0.0685  0.1945;
+                             2      0.0640  0.0450  0.0885;
+                             2      0.0450  0.0660  0.0800;
+                             2      0.0450  0.0460  0.0810;
+                             1      0.0305  0.0305  0.0105];
+            % copy constants into offset
+            if nargin < 3
+                OFFSET(:,:,1) = OFFSET_UR3;
+                OFFSET(:,:,2) = OFFSET_MECA500;
+                SHAPE(:,:,1) = SHAPE_UR3;
+                SHAPE(:,:,2) = SHAPE_MECA500;
+            elseif robot == self.ur3
+                OFFSET(:,:,1) = OFFSET_UR3;
+                SHAPE(:,:,1) = SHAPE_UR3;
+            elseif robot == self.meca500
+                OFFSET(:,:,1) = OFFSET_MECA500;
+                SHAPE(:,:,1) = SHAPE_MECA500;
+            end
+                             
+                                   
+            % get list of points that need to be checked (chosen by checkMatrix)
+            points = [];
+            if ismember("table", checkMatrix)
+                points = [points; self.ExtractRobotpoints(self.table)];
+            end   
+            if ismember("ur3", checkMatrix)
+                points = [points; self.ExtractRobotpoints(self.ur3)];
+            end
+            if ismember("meca500", checkMatrix)
+                points = [points; self.ExtractRobotpoints(self.meca500)];
+            end
+            if ismember("hand", checkMatrix)
+                points = [points; self.ExtractRobotpoints(self.hand)];
+            end
+            
+            
+            % code to check collisions
+            mask = nan(size(points,1),6,size(robot,1));
+            for r = 1:size(robot,1)                                         % iterate through every robot
+                linkTransform = robot(r).base;                              % initial linkTransform is base of robot
+                for l = 1:robot(r).n                                        % iterate through every link of robot
+                    linkTransform = linkTransform * trotz(q(r,l)+robot(r).links(l).offset) * transl(0,0,robot(r).links(l).d) * transl(robot(r).links(l).a,0,0) * trotx(robot(r).links(l).alpha);    % get link transform
+                    %c_h = trplot(linkTransform, 'color', 'b')
+                    centerTransform(:,:) = linkTransform * transl(OFFSET(l,1,r),OFFSET(l,2,r),OFFSET(l,3,r)) * trotx(OFFSET(l,4,r)) * troty(OFFSET(l,5,r)) * trotz(OFFSET(l,6,r));                  % correct link transforms to center of link
+                    %c_h = trplot(centerTransform, 'color', 'r')
+                    if SHAPE(l,1,r) == 1                                    % if collision checking is cylindric
+                        mask(:,l,r) = self.IsInCylinder(centerTransform,SHAPE(l,2,r),SHAPE(l,4,r),SAFETYDISTANCE,points);   % check collision of points
+                    elseif SHAPE(l,1,r) == 2                                % if collision checking is prismatic
+                        mask(:,l,r) = self.IsInRectangularPrism(centerTransform,SHAPE(l,2,r),SHAPE(l,3,r),SHAPE(l,4,r),SAFETYDISTANCE,points);  % check collision of points
+                    end
+                end
+            end
+            
+            % if there is a collision (mask contains "1"), get index of colliding point, index of colliding link and index of colliding robot
+            [collidingPoint,collidingLink,collidingRobot] = ind2sub(size(mask),find(mask == 1));
+            collisionInfo = [collidingPoint,collidingLink,collidingRobot];  % concatinate indices to matrix
+            numberCollidingPoints = size(unique(collisionInfo(:,1)),1);     % count number of colliding points
+        end
+        
+        %% check if something is near the swipebot system
+        function numberCollidingPoints = CheckWorkspace(self)%, robot)
+            sphereCenter = self.table.base * transl(0,0,0.42);
+            radius = 0.8;
+            safetyDistance = 0;
+            
+            points = [1 0 0];%self.ExtractRobotpoints(robot);
+            
+            numberCollidingPoints = self.IsInEllipsoid(sphereCenter,radius,radius,radius,safetyDistance,points);
+        end
+        
+        %% check if any point is inside a cylinder with given centerpose
+        function mask = IsInCylinder(~,pose,radius,height,safetyDistance,points)
+            pointsInPose = [pose\[points,ones(size(points,1),1)]']';        % update global points to local coordinate frame
+            mask = (abs(pointsInPose(:,3)) <= (height/2 + safetyDistance)) & (sqrt(pointsInPose(:,1).^2 + pointsInPose(:,2).^2) <= (radius + safetyDistance)); % conditions for collision
+        end
+        
+        %% check if any point is inside a rectangular prism with given centerpose
+        function mask = IsInRectangularPrism(~,pose,x,y,z,safetyDistance,points)
+            pointsInPose = [pose\[points,ones(size(points,1),1)]']';        % update global points to local coordinate frame
+            mask = (abs(pointsInPose(:,1)) <= (x/2 + safetyDistance)) & (abs(pointsInPose(:,2)) <= (y/2 + safetyDistance)) & (abs(pointsInPose(:,3)) <= (z/2 + safetyDistance));    % conditions for collision
+        end
+        
+        %% check if any point is inside a ellipsoid
+        function mask = IsInEllipsoid(~,pose,rx,ry,rz,safetyDistance,points)
+            pointsInPose = [pose\[points,ones(size(points,1),1)]']';
+            mask = (((pointsInPose(:,1)+safetyDistance)/rx).^2 + ((pointsInPose(:,2)+safetyDistance)/ry).^2 + ((pointsInPose(:,3)+safetyDistance)/rz).^2) <= 1;
+        end
+        
+        %% extract global points of robot classes
+        function points = ExtractRobotpoints(~, robot)
+            q = robot.getpos;                                               % get current joint state
+            points = [];                                                    % define empty matrix
+            for i = 1:robot.n+1                                             % iterate through every robotlink + base
+                if i == 1
+                    linkTransform = robot.base;                             % use robotbase in first iteration
+                else                                                        % calculate joint transforms
+                    linkTransform = linkTransform * trotz(q(i-1)+robot.links(i-1).offset) * transl(0,0,robot.links(i-1).d) * transl(robot.links(i-1).a,0,0) * trotx(robot.links(i-1).alpha);
+                end
+
+                if ~isempty(robot.points{1,i})                              % if points exist for that joint
+                    globalPoints = [linkTransform * [robot.points{1,i},ones(size(robot.points{1,i},1),1)]']';   % determine points in global coordinate frame
+                    points = [points; globalPoints(:,1:3)];                 % concatinate calculated points
+                end
             end
         end
+        
+        
+    %%% GENERATING TRAJECTORIES %%%
         %% calculate transform trajectory between two poses with lspb
         % this function calculates a lspb trajectory between two poses with a maximum stepsize of the input parameter "stepsize"
         function [transformTrajectory,lspbSteps] = GetLspbTrajectory(~,transform1,transform2,stepsize)
@@ -43,15 +226,15 @@ classdef Calculations < handle
         end
         
         %% given three corner points of the window (top left, top right, bottom left) calculate the trajectory at the window
-        function [spongePath,squeegeePath]=CalculateCleaningPaths(self, stepsize, windowpoints)
+        function [spongePath,squeegeePath]=CalculateCleaningPaths(self, app, stepsize, windowpoints)
             %default window
-            if nargin < 3
-                windowpoints = [0.5, 0.40,0.9;...
-                                0.5,-0.20,0.9;...
-                                0.5, 0.40,0.6];
+            if nargin < 4
+                windowpoints = [0.55, 0.40,1.0;
+                                0.55,-0.15,1.0;
+                                0.55, 0.40,0.4];
             end
             %default stepsize
-            if nargin < 2
+            if nargin < 3
                 stepsize = 0.005;    % distance between two transforms in trajectory
             end
             
@@ -65,6 +248,13 @@ classdef Calculations < handle
             height = sqrt(sum((windowpoints(3,:)' - windowpoints(1,:)').^2));   % height of window
             disp(['The width of the window  is ', num2str(width), ' m']);
             disp(['The height of the window is ', num2str(height), ' m']);
+            str1 = sprintf('The width of the window is %.3f m',width);
+            str2 = sprintf('The height of the window is %.3f m',height);
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  str1;
+                                  str2];
+            drawnow;
             
             widthVector  = unit(windowpoints(2,:)' - windowpoints(1,:)');       % unit vector along window width
             heightVector = unit(windowpoints(3,:)' - windowpoints(1,:)');       % unit vector along window height
@@ -89,8 +279,8 @@ classdef Calculations < handle
                
             %%%%% path of sponge %%%%%
             
-            spongeWidth    =  0.1;  % measurements of sponge
-            spongeLength   =  0.03;
+            spongeWidth    =  0.2;  % measurements of sponge
+            spongeLength   =  0.1;
                                     
             % 1. approach window
             step=1;
@@ -118,7 +308,7 @@ classdef Calculations < handle
             
             % s-shaped path
             widthSteps = floor((width-2*spongeWidth)/stepsize);   % number of straight increments between turns (width)
-            heightSteps= floor((height-spongeWidth)/spongeWidth); % number of lines (height)
+            heightSteps= floor((height)/spongeWidth); % number of lines (height)
             supposedAngle = 2*asin((stepsize/2)/(spongeWidth/2)); % optimal angle the sponge has to rotate in turns (constant velocity)
             angleSteps = floor(pi/supposedAngle);                 % number of turn steps per turn (rounded down to whole number)
             angle = pi/angleSteps;                                % "real" turn angle
@@ -202,7 +392,7 @@ classdef Calculations < handle
             end
             
             % plot trajectory
-            plot = 1;
+            plot = 0;
             if plot==1
                 for i = 1:size(spongePath,3)
                     %trplot(spongePath(:,:,i),'length',0.05, 'color', 'b');
@@ -215,7 +405,7 @@ classdef Calculations < handle
             %%%%% path of squeegee %%%%%
             
             squeegeeWidth    =  0.2;  % measurements of squeegee
-            squeegeeLength   =  0.01;
+            squeegeeLength   =  0.03;
             
             step=1;
             startPos = windowCorner(:,:,1) * transl(squeegeeWidth/2, squeegeeLength/2, -safetyDistance) * trotz(pi/2);    % first pose of trajectory at top left corner
@@ -231,7 +421,7 @@ classdef Calculations < handle
                 step=qpSteps+step;            % update step counter
                 % move down
                 endPos = squeegeePath(:,:,step-1) * transl(height-squeegeeLength,0,0);
-                [transformTrajectory,lspbSteps] = self.GetQpTrajectory(squeegeePath(:,:,step-1),endPos,stepsize,1); % get lspb trajectory     %here
+                [transformTrajectory,lspbSteps] = self.GetLspbTrajectory(squeegeePath(:,:,step-1),endPos,stepsize);  % get lspb trajectory
                 squeegeePath(:,:,step:(lspbSteps+step-1)) = transformTrajectory;
                 step = lspbSteps+step;        % update step counter
                 % lift off window
@@ -240,21 +430,27 @@ classdef Calculations < handle
                 squeegeePath(:,:,step:(qpSteps+step-1)) = transformTrajectory;
                 step=qpSteps+step;            % update step counter
                 % move to next line
-                if i < widthSteps % move next to previos line
+                if i < widthSteps % move to next line
                     endPos = startPos * transl(0,-(i*squeegeeWidth),0);
-                    [transformTrajectory,lspbSteps] = self.GetQpTrajectory(squeegeePath(:,:,step-1),endPos,stepsize,1); % get lspb trajectory   %here
+                    [transformTrajectory,lspbSteps] = self.GetLspbTrajectory(squeegeePath(:,:,step-1),endPos,stepsize);% get lspb trajectory
                     squeegeePath(:,:,step:(lspbSteps+step-1)) = transformTrajectory;
                     step = lspbSteps+step;        % update step counter
                 elseif i < widthSteps+1           % move to right edge if not already done
                     if width/squeegeeWidth > widthSteps
                         endPos = windowCorner(:,:,2) * transl(-squeegeeWidth/2, squeegeeLength/2, -safetyDistance) * trotz(pi/2);
-                        [transformTrajectory,lspbSteps] = self.GetQpTrajectory(squeegeePath(:,:,step-1),endPos,stepsize,1); % get lspb trajectory   %here
+                        [transformTrajectory,lspbSteps] = self.GetLspbTrajectory(squeegeePath(:,:,step-1),endPos,stepsize); % get lspb trajectory
                         squeegeePath(:,:,step:(lspbSteps+step-1)) = transformTrajectory;
                         step = lspbSteps+step;        % update step counter
                     end
                 end
             end
-            
+%             % move back to top left corner
+%             endPos = startPos;
+%             [transformTrajectory,lspbSteps] = self.GetLspbTrajectory(squeegeePath(:,:,step-1),endPos,stepsize);% get lspb trajectory
+%             squeegeePath(:,:,step:(lspbSteps+step-1)) = transformTrajectory;
+%             step = lspbSteps+step;        % update step counter
+                
+                
             % plot trajectory
             plot = 0;
             if plot == 1
@@ -265,6 +461,90 @@ classdef Calculations < handle
                 end
             end
         end
+        
+        %% move UR3 to the starting position at the window
+        function [qMatrix1, steps] = TravelUR3(self,mode,path,qStart,steps,cycle)
+            if nargin < 6
+                cycle = 1;
+            end
+            % the variable "cycle" decides which waypoints are used. If you
+            % call the function you should always use cycle = 1 or don't input any value. 
+            % If the system recognizes a collision, it runs the same function
+            % again with the alternative waypoints in cycle2
+            
+            % waypoint for trajectory
+            waypoint = self.waypointUR3;
+                
+            if mode == "toWindow"
+                if cycle == 1   % robot can reach its goal traditionally
+                    % waypoints as joint states
+                    q(1,:) = qStart;
+                    q(2,:) = self.ur3.ikcon(waypoint,self.qUR3Home);
+                    q(3,:) = self.ur3.ikcon(path(:,:,1)*(self.gripperUR3offset * self.toolUR3offset),q(2,:));
+
+                elseif cycle == 2 % robot must avoid an obstacle
+                    % waypoints as joint states
+                    q(1,:) = qStart;
+                    q(2,:) = deg2rad([-270 -90 -140 50 90 0]);
+                    q(3,:) = self.ur3.ikcon(path(:,:,1)*(self.gripperUR3offset * self.toolUR3offset),q(2,:));
+                end
+            elseif mode == "fromWindow"
+                if cycle == 1   % robot can reach its goal traditionally
+                    % waypoints as joint states
+                    q(1,:) = qStart;
+                    q(2,:) = self.ur3.ikcon(waypoint,self.qUR3Home);
+                    q(3,:) = self.qUR3Home;
+
+                elseif cycle == 2 % robot must avoid an obstacle
+                    % waypoints as joint states
+                    q(1,:) = qStart;
+                    q(2,:) = deg2rad([-270 -90 -140 50 90 0]);
+                    q(3,:) = self.qUR3Home;
+                end
+            end
+            
+            partSteps = floor(steps/(size(q,1)-1));         % split number of steps between waypoints
+            qMatrix1 = nan(partSteps*(size(q,1)-1),6);     % allocate empty array
+            
+            
+            % iterate through waypoints and get lspb trajectory
+            for i=1:size(q,1)-1
+                s = lspb(0,1,partSteps);                    % linear segment wit parabolic blend
+                for j = 1:partSteps
+                    qMatrix1(((i-1)*partSteps+j),:) = (1-s(j))*q(i,:) + s(j)*q(i+1,:);  % get qMatrix with lspb
+                end
+            end
+            
+            % check for collisions
+            if cycle == 1   % just used for initial cycle
+                if ~isempty(findobj('Tag', self.hand.name))
+                    for i = 1:10:(size(q,1)-1)*partSteps    % take every 10th step
+                        numberOfCollidingPoints = CheckCollision(self, "hand", self.ur3, qMatrix1(i,:));   % call collision checking function
+                        if numberOfCollidingPoints > 0
+                            steps = 200;
+                            qMatrix1 = self.TravelUR3(mode,path,qStart,steps,2);   % if collision recognized call function again with cycle = 2
+                            return;
+                        end
+                    end
+                end
+            end
+        end
+        
+        %% generate a transform trajectory from given waypoints with lspb
+%         function transformTrajectory = GetWaypointTrajectory(~, transforms, steps)
+%             waypoints = nan(6,size(transforms,3));
+%             for i = 1:size(transforms,3)
+%                 waypoints(:,i) = [transforms(1:3,4,i); tr2rpy(transforms(1:3,1:3,i))'];
+%             end 
+%             
+%             travelpoints = trapveltraj(waypoints,steps);
+%             
+%             transformTrajectory = nan(4,4,steps);
+%             for i = 1:steps
+%                 transformTrajectory(:,:,i) = [rpy2r(travelpoints(4:6,i)'), travelpoints(1:3,i);
+%                                               0, 0, 0, 1];
+%             end
+%         end
     end
 end
 
