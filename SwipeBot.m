@@ -1,4 +1,6 @@
+
 classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table & Sponge & Squeegee & Hand
+
     
     properties
         base = eye(4);
@@ -57,8 +59,10 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             self.meca500.animate(q);                                    % plot the same joint configuration at new pose
             self.UpdateGripper3F;
             self.UpdateGripper2F;
+
             self.UpdateSponge(self.spongeHome);
             self.UpdateSqueegee(self.squeegeeHome);
+
             self.hand.base = self.handPos1;
             %self.hand.animate(0);
         end

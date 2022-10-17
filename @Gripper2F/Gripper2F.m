@@ -1,6 +1,7 @@
-classdef Gripper2F < handle
+
     % class builds a gripper with three fingers similar to the HGPM-12-EO-G9 from Festo
     % source: https://www.festo.com/au/en/a/197567/?q=hgpm~:sortByCoreRangeAndSp2020
+
     
     properties
         % cell structure of three fingers
@@ -12,8 +13,10 @@ classdef Gripper2F < handle
         g2FBase = eye(4);
         
         %status of gripper
+
         g2FStatus = "open";
         % workspace = [-0.1 0.1 -0.1 0.1 -0.2 0.2]
+
     end
     
     methods
@@ -25,22 +28,22 @@ classdef Gripper2F < handle
 
         end
         
-        
+
         %% Get Gripper2F Model
         function GetGripper2F(self)
             L1 = Link('theta',0,'a',0,'alpha',0,'prismatic','qlim',[-0.003 0],'offset',0); % PRISMATIC Link
+
             
             for i = 1:2
                 name = ['g2Finger',num2str(i)];
                 self.g2Finger{i} = SerialLink(L1,'name',name);
             end
             
+
             self.g2Finger{1}.base = self.g2FBase * trotz(0 ) * transl(0, -0.0175, 0.0389) * trotx(-pi/2);
             self.g2Finger{2}.base = self.g2FBase * trotz(pi) * transl(0, -0.0175, 0.0389) * trotx(-pi/2);
-        
-%             self.g2Finger{1}.plot(0, 'workspace', self.workspace)
-%             hold on
-%             self.g2Finger{2}.plot(0, 'workspace', self.workspace)
+       
+
         end
         
         %% Plot and Colour Gripper3F
@@ -50,6 +53,7 @@ classdef Gripper2F < handle
             % iterate through fingers
             for i = 1:2
                 % load data from .ply file
+
                 for linkIndex = (i-1):self.g2Finger{1}.n
                     [faceData, vertexData, plyData{linkIndex + 1} ] = plyread(['Gripper2F',num2str(linkIndex),'.ply'],'tri');              
                     self.g2Finger{i}.faces{linkIndex + 1} = faceData;
@@ -76,15 +80,17 @@ classdef Gripper2F < handle
                     catch ME_1
                         disp(ME_1);
                         continue;
+
                     end
                 end
             end
         end
-%         
+
         %% update position of gripper
         function UpdateGripper2F(self)
             
             % change base of gripper to given pose
+
             self.g2FBase = self.meca500.fkine(self.meca500.getpos);
                                     
             % update base of every finger
@@ -95,6 +101,7 @@ classdef Gripper2F < handle
                 q = 0;
             elseif self.g2FStatus == "open"
                 q = -0.003;
+
             end
             
             % plot updated gripper
