@@ -250,10 +250,10 @@ classdef Calculations < handle
             disp(['The height of the window is ', num2str(height), ' m']);
             str1 = sprintf('The width of the window is %.3f m',width);
             str2 = sprintf('The height of the window is %.3f m',height);
-%             app.TextArea.Value = [app.TextArea.Value;
-%                                   " ";
-%                                   str1;
-%                                   str2];
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  str1;
+                                  str2];
             drawnow;
             
             widthVector  = unit(windowpoints(2,:)' - windowpoints(1,:)');       % unit vector along window width
@@ -530,7 +530,7 @@ classdef Calculations < handle
             end
         end
         
-        %% move Meca500 to bring the tools to the UR3
+        %% move Meca500 to the tool pickup position
         function [qMatrix, steps] = MoveMeca500(self, tool, mode)
             toolChange = self.toolChangeTr * self.gripperMeca500offset;
             waitingPos = toolChange * transl(0,0,-0.1);
@@ -657,11 +657,6 @@ classdef Calculations < handle
                 qMatrix = [qMatrix; jtraj(q(i,:),q(i+1,:),step(i))];
                 steps = steps + step(i);
             end
-        end
-        
-        %% move UR3 to get the tools from Meca500
-        function [qMatrix, steps] = MoveUR3(self, mode)
-            trTrajToTool = ctraj(self.trUR3Home, toolChangeTr*gripperUR3offset, 50)
         end
     end
 end

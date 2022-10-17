@@ -12,7 +12,7 @@ classdef Gripper2F < handle
         g2FBase = eye(4);
         
         %status of gripper
-        g2FStatus = "close";
+        g2FStatus = "open";
         % workspace = [-0.1 0.1 -0.1 0.1 -0.2 0.2]
     end
     
@@ -35,8 +35,8 @@ classdef Gripper2F < handle
                 self.g2Finger{i} = SerialLink(L1,'name',name);
             end
             
-            self.g2Finger{1}.base = self.g2FBase * trotz(0 ) * transl(0, -0.0175, 0.0289) * trotx(-pi/2);
-            self.g2Finger{2}.base = self.g2FBase * trotz(pi) * transl(0, -0.0175, 0.0289) * trotx(-pi/2);
+            self.g2Finger{1}.base = self.g2FBase * trotz(0 ) * transl(0, -0.0175, 0.0389) * trotx(-pi/2);
+            self.g2Finger{2}.base = self.g2FBase * trotz(pi) * transl(0, -0.0175, 0.0389) * trotx(-pi/2);
         
 %             self.g2Finger{1}.plot(0, 'workspace', self.workspace)
 %             hold on
@@ -88,8 +88,8 @@ classdef Gripper2F < handle
             self.g2FBase = self.meca500.fkine(self.meca500.getpos);
                                     
             % update base of every finger
-            self.g2Finger{1}.base = self.g2FBase * trotz(0 ) * transl(0, -0.0175, 0.0289) * trotx(-pi/2);
-            self.g2Finger{2}.base = self.g2FBase * trotz(pi) * transl(0, -0.0175, 0.0289) * trotx(-pi/2);
+            self.g2Finger{1}.base = self.g2FBase * trotz(0 ) * transl(0, -0.0175, 0.0389) * trotx(-pi/2);
+            self.g2Finger{2}.base = self.g2FBase * trotz(pi) * transl(0, -0.0175, 0.0389) * trotx(-pi/2);
             
             if self.g2FStatus == "close"
                 q = 0;

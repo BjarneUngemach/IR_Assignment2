@@ -18,7 +18,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
         toolUR3offset = eye(4)
         
         % Meca 500 %
-        qMeca500Home = [0 0 0 0 -pi/2 0];
+        qMeca500Home = [0 0 0 0 0 0];
         gripperMeca500offset = transl(0, 0.0685, 0.051) * trotx(pi/2) * trotz(pi/2);
         
         % Hand %
@@ -53,7 +53,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             q = self.qUR3Home;%self.ur3.getpos;                                      % get current joint configuration
             self.ur3.animate(q);                                        % plot the same joint configuration at new pose
             self.meca500.base = self.base * transl(-0, 0.15, 0.05) * trotz(-pi/2);   % put the Meca500 in the bottom shelf
-            q = self.qMeca500Home;%self.meca500.getpos;                                    % get current joint configuration
+            q = self.meca500.getpos;                                    % get current joint configuration
             self.meca500.animate(q);                                    % plot the same joint configuration at new pose
             self.UpdateGripper3F;
             self.UpdateGripper2F;
@@ -332,26 +332,18 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 self.g2FStatus = "close";
                 self.UpdateGripper2F;
                 
-                % bring squeegee back
-                [qMatrix11, steps11] = self.MoveMeca500("squeegee", "fromUR3");
-                for i = 1:steps11
-                    self.meca500.animate(qMatrix11(i,:));
+                % bring sponge back
+                [qMatrix5, steps5] = self.MoveMeca500("sponge", "fromUR3");
+                for i = 1:steps5
+                    self.meca500.animate(qMatrix5(i,:));
                     self.UpdateGripper2F;
-                    self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     pause(0.001);
                 end
                 
                 % open 2 Finger Gripper
                 self.g2FStatus = "open";
                 self.UpdateGripper2F;
-                
-                % retreat from sponge
-                [qMatrix12, steps12] = self.MoveMeca500("squeegee", "fromTool");
-                for i = 1:steps12
-                    self.meca500.animate(qMatrix12(i,:));
-                    self.UpdateGripper2F;
-                    pause(0.001);
-                end
             end
         end
         %% test 
