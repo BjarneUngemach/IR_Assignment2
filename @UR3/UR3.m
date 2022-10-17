@@ -1,4 +1,5 @@
 classdef UR3 < handle
+    
     properties
         %> Robot model
         ur3;

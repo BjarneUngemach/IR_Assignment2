@@ -34,9 +34,9 @@ classdef Gripper3F < handle
                 self.g3Finger{i} = SerialLink(L1,'name',name);
             end
             
-            self.g3Finger{1}.base = self.g3FBase * trotz(pi/2 + 0     ) * transl(-0.025, 0, 0.0705) * troty(pi/2);
-            self.g3Finger{2}.base = self.g3FBase * trotz(pi/2 + 2*pi/3) * transl(-0.025, 0, 0.0705) * troty(pi/2);
-            self.g3Finger{3}.base = self.g3FBase * trotz(pi/2 + 4*pi/3) * transl(-0.025, 0, 0.0705) * troty(pi/2);
+            self.g3Finger{1}.base = self.g3FBase * trotz(pi/2 + 0     ) * transl(-0.025, 0, 0.0430) * troty(pi/2);
+            self.g3Finger{2}.base = self.g3FBase * trotz(pi/2 + 2*pi/3) * transl(-0.025, 0, 0.0430) * troty(pi/2);
+            self.g3Finger{3}.base = self.g3FBase * trotz(pi/2 + 4*pi/3) * transl(-0.025, 0, 0.0430) * troty(pi/2);
         end
         
         %% Plot and Colour Gripper3F
@@ -115,9 +115,9 @@ classdef Gripper3F < handle
             self.g3FBase = self.ur3.fkine(self.ur3.getpos);
                                     
             % update base of every finger
-            self.g3Finger{1}.base = self.g3FBase * trotz(pi/2 + 0     ) * transl(-0.025, 0, 0.0705) * troty(pi/2);
-            self.g3Finger{2}.base = self.g3FBase * trotz(pi/2 + 2*pi/3) * transl(-0.025, 0, 0.0705) * troty(pi/2);
-            self.g3Finger{3}.base = self.g3FBase * trotz(pi/2 + 4*pi/3) * transl(-0.025, 0, 0.0705) * troty(pi/2);
+            self.g3Finger{1}.base = self.g3FBase * trotz(pi/2 + 0     ) * transl(-0.025, 0, 0.0430) * troty(pi/2);
+            self.g3Finger{2}.base = self.g3FBase * trotz(pi/2 + 2*pi/3) * transl(-0.025, 0, 0.0430) * troty(pi/2);
+            self.g3Finger{3}.base = self.g3FBase * trotz(pi/2 + 4*pi/3) * transl(-0.025, 0, 0.0430) * troty(pi/2);
             
             if self.g3FStatus == "close"
                 q = 0;

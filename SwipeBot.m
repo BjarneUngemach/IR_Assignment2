@@ -1,24 +1,27 @@
-classdef SwipeBot < UR3 & MECA500 & Gripper3F & Gripper2F & Table & Calculations & Hand
+
+classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table & Sponge & Squeegee & Hand
+
     
     properties
         base = eye(4);
         workspace = [-0.5 0.5 -0.5 0.5 0 1.1]
-        toolChangeTr = transl(0,-0.15,0.4) * troty(-pi);
+        toolChangeTr = transl(0,-0.12,0.4) * troty(-pi);
     end
 
     properties (Hidden)
         % UR3 %
-        qUR3Home = [0 -1.5539 -2.2649 -0.8937 1.5708 0];
+        qUR3Home = [0 -1.4900 -2.3247 -0.8976 1.5708 0];
         trUR3Home = [-1 0  0  0;
-                      0 1  0 -0.135;
+                      0 1  0 -0.12;
                       0 0 -1  0.6;
                       0 0  0  1];
         waypointUR3 = transl(0.2353,0,0.830) * trotz(-pi/2) * trotx(-pi/2);
-        gripperUR3offset = transl(0,0,-0.08);
+        gripperUR3offset = transl(0,0,-0.0590);
         toolUR3offset = eye(4)
         
         % Meca 500 %
-        qMeca500Home = [0 0 0 0 0 0];
+        qMeca500Home = [0 0 0 0 -pi/2 0];
+        gripperMeca500offset = transl(0, 0.0685, 0.051) * trotx(pi/2) * trotz(pi/2);
         
         % Hand %
         handPos1 = transl(0.15, -0.2, 0.6) * trotz(pi) * trotx(pi/2);
@@ -52,10 +55,14 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Gripper2F & Table & Calculations
             q = self.qUR3Home;%self.ur3.getpos;                                      % get current joint configuration
             self.ur3.animate(q);                                        % plot the same joint configuration at new pose
             self.meca500.base = self.base * transl(-0, 0.15, 0.05) * trotz(-pi/2);   % put the Meca500 in the bottom shelf
-            q = self.meca500.getpos;                                    % get current joint configuration
+            q = self.qMeca500Home;%self.meca500.getpos;                                    % get current joint configuration
             self.meca500.animate(q);                                    % plot the same joint configuration at new pose
             self.UpdateGripper3F;
             self.UpdateGripper2F;
+
+            self.UpdateSponge(self.spongeHome);
+            self.UpdateSqueegee(self.squeegeeHome);
+
             self.hand.base = self.handPos1;
             %self.hand.animate(0);
         end
@@ -71,7 +78,7 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Gripper2F & Table & Calculations
             % UR3
             qUR3 = self.ur3.getpos;
             qUR3Home = self.qUR3Home;
-            qUR3Store = deg2rad([0 -200 -70 -90 180 0]);
+            qUR3Store = deg2rad([0 -190 -80 -90 180 0]);
             qUR3PreStore = deg2rad([-14 -135 -110 -115 166 0]);
             % Meca500
             qMeca500 = self.meca500.getpos;
@@ -195,7 +202,7 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Gripper2F & Table & Calculations
                 end
                 
                 self.ur3.animate(qUR3Matrix(i,:));
-                self.UpdateGripper3F("open");
+                self.UpdateGripper3F;
                 if app.EmergencyStopButton.Value
                     if ~app.EmergencyStopButton.Value
                     end
@@ -211,6 +218,146 @@ classdef SwipeBot < UR3 & MECA500 & Gripper3F & Gripper2F & Table & Calculations
                                   "Enjoy your clean windows."];
         end
         
+        %% change tools
+        function ChangeTools(self, mode)
+            if mode == "getSponge"
+                % move Meca500 to grab sponge
+                [qMatrix1, steps1] = self.MoveMeca500("sponge", "toTool");
+                for i = 1:steps1
+                    self.meca500.animate(qMatrix1(i,:));
+                    self.UpdateGripper2F;
+                    pause(0.001);
+                end
+                
+                % close 2 Finger Gripper
+                self.g2FStatus = "close";
+                self.UpdateGripper2F;
+
+                % lift sponge up
+                [qMatrix2, steps2] = self.MoveMeca500("sponge", "toUR3");
+                for i = 1:steps2
+                    self.meca500.animate(qMatrix2(i,:));
+                    self.UpdateGripper2F;
+                    self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    pause(0.001);
+                end
+                
+                % open 2 Finger Gripper
+                self.g2FStatus = "open";
+                self.UpdateGripper2F;
+                
+                % retreat Meca500
+                [qMatrix3, steps3] = self.MoveMeca500("sponge", "toWait");
+                for i = 1:steps3
+                    self.meca500.animate(qMatrix3(i,:));
+                    self.UpdateGripper2F;
+                    pause(0.001);
+                end
+            end
+            
+            if mode == "switchTools"
+                % grab sponge again
+                [qMatrix4, steps4] = self.MoveMeca500("sponge", "fromWait");
+                for i = 1:steps4
+                    self.meca500.animate(qMatrix4(i,:));
+                    self.UpdateGripper2F;
+                    pause(0.001);
+                end
+                
+                % close 2 Finger Gripper
+                self.g2FStatus = "close";
+                self.UpdateGripper2F;
+                
+                % bring sponge back
+                [qMatrix5, steps5] = self.MoveMeca500("sponge", "fromUR3");
+                for i = 1:steps5
+                    self.meca500.animate(qMatrix5(i,:));
+                    self.UpdateGripper2F;
+                    self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    pause(0.001);
+                end
+                
+                % open 2 Finger Gripper
+                self.g2FStatus = "open";
+                self.UpdateGripper2F;
+                
+                % retreat from sponge
+                [qMatrix6, steps6] = self.MoveMeca500("sponge", "fromTool");
+                for i = 1:steps6
+                    self.meca500.animate(qMatrix6(i,:));
+                    self.UpdateGripper2F;
+                    pause(0.001);
+                end
+                
+                % move to squeegee
+                [qMatrix7, steps7] = self.MoveMeca500("squeegee", "toTool");
+                for i = 1:steps7
+                    self.meca500.animate(qMatrix7(i,:));
+                    self.UpdateGripper2F;
+                    pause(0.001);
+                end
+                
+                % close 2 Finger Gripper
+                self.g2FStatus = "close";
+                self.UpdateGripper2F;
+
+                % lift squeegee up
+                [qMatrix8, steps8] = self.MoveMeca500("squeegee", "toUR3");
+                for i = 1:steps8
+                    self.meca500.animate(qMatrix8(i,:));
+                    self.UpdateGripper2F;
+                    self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    pause(0.001);
+                end
+                
+                % open 2 Finger Gripper
+                self.g2FStatus = "open";
+                self.UpdateGripper2F;
+                
+                % retreat Meca500
+                [qMatrix9, steps9] = self.MoveMeca500("squeegee", "toWait");
+                for i = 1:steps9
+                    self.meca500.animate(qMatrix9(i,:));
+                    self.UpdateGripper2F;
+                    pause(0.001);
+                end
+            end
+            
+            if mode == "removeSqueegee"
+                % grab squeegee again
+                [qMatrix10, steps10] = self.MoveMeca500("squeegee", "fromWait");
+                for i = 1:steps10
+                    self.meca500.animate(qMatrix10(i,:));
+                    self.UpdateGripper2F;
+                    pause(0.001);
+                end
+                
+                % close 2 Finger Gripper
+                self.g2FStatus = "close";
+                self.UpdateGripper2F;
+                
+                % bring squeegee back
+                [qMatrix11, steps11] = self.MoveMeca500("squeegee", "fromUR3");
+                for i = 1:steps11
+                    self.meca500.animate(qMatrix11(i,:));
+                    self.UpdateGripper2F;
+                    self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    pause(0.001);
+                end
+                
+                % open 2 Finger Gripper
+                self.g2FStatus = "open";
+                self.UpdateGripper2F;
+                
+                % retreat from sponge
+                [qMatrix12, steps12] = self.MoveMeca500("squeegee", "fromTool");
+                for i = 1:steps12
+                    self.meca500.animate(qMatrix12(i,:));
+                    self.UpdateGripper2F;
+                    pause(0.001);
+                end
+            end
+        end
         %% test 
         function Test(self, app)
             app.TextArea.Value = ["Test";"another Test"];
