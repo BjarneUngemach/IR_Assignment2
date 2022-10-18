@@ -2,20 +2,20 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
     
     properties
         base = eye(4);
-        workspace = [-0.5 0.5 -0.5 0.5 0 1.1]
+        workspace = [-0.31 0.8 -0.5 0.5 0 1.1]
         toolChangeTr = transl(0,-0.12,0.4) * troty(-pi);
     end
 
     properties (Hidden)
         % UR3 %
         qUR3Home = [0 -1.4900 -2.3247 -0.8976 1.5708 0];
-        trUR3Home = [-1 0  0  0;
+        trUR3Home = [-1 0  0  0.0001;
                       0 1  0 -0.12;
-                      0 0 -1  0.6;
+                      0 0 -1  0.5999;
                       0 0  0  1];
         waypointUR3 = transl(0.2353,0,0.830) * trotz(-pi/2) * trotx(-pi/2);
-        gripperUR3offset = transl(0,0,-0.0590);
-        toolUR3offset = eye(4)
+        gripperUR3offset = transl(0,0,-0.0590) * trotz(-pi/2);
+        toolUR3offset = transl(0,0,-0.12);
         
         % Meca 500 %
         qMeca500Home = [0 0 0 0 -pi/2 0];
@@ -47,6 +47,8 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
         
         %% Update all elements to the desired pose of the SwipeBot
         function UpdatePosition(self)
+            axis equal
+            hold on
             self.table.base = self.base;                                % move the table to desired pose
             self.table.animate(0);                                      % plot table
             self.ur3.base = self.base * transl(0.1124, 0.1124, 0.42)*trotz(-pi/2);   % put the UR3 on top of the table
@@ -60,7 +62,6 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             self.UpdateSponge(self.spongeHome);
             self.UpdateSqueegee(self.squeegeeHome);
             self.hand.base = self.handPos1;
-            %self.hand.animate(0);
         end
     end
     
@@ -84,15 +85,16 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             % move to home position
             if choice == "home"
                 app.TextArea.Value = "Move both robots to home position.";
-                % UR3
+                
                 if 0.0001 > self.ur3.getpos - qUR3Store                         % if robot is in "store" position...
-                    qMatrixUR3 = jtraj(qUR3Store,qUR3PreStore,50);              % move robot to waypoint
-                    qMatrixUR3 = [qMatrixUR3; jtraj(qUR3PreStore,qUR3Home,50)]; % then move to "home" position
+                    % UR3
+                    qMatrixUR3 = jtraj(qUR3Store,qUR3PreStore,25);              % move robot to waypoint
+                    qMatrixUR3 = [qMatrixUR3; jtraj(qUR3PreStore,qUR3Home,25)]; % then move to "home" position
+                    qMatrixMeca500 = jtraj(qMeca500,qMeca500Home,50);
                 else
-                    qMatrixUR3 = jtraj(qUR3,qUR3Home,100);                      % else move directly to home position
+                    qMatrixUR3 = jtraj(qUR3,qUR3Home,50);                      % else move directly to home position
+                    qMatrixMeca500 = jtraj(qMeca500,qMeca500Home,50);
                 end
-                % Meca 500
-                qMatrixMeca500 = jtraj(qMeca500,qMeca500Home,100);              % move directly to home
             end
             
             if choice == "store"
@@ -101,22 +103,22 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 if (0.0001 < sum(self.ur3.getpos - qUR3Home)) || (0.0001 < sum(self.meca500.getpos - qMeca500Home)) % if robot is NOT at home position...
                     self.MoveTo("home");                                        % move robot there first
                 end
-                qMatrixUR3 = jtraj(qUR3,qUR3PreStore,50);                       % move robot to waypoint
-                qMatrixUR3 = [qMatrixUR3; jtraj(qUR3PreStore,qUR3Store,50)];    % then to "store" position
+                qMatrixUR3 = jtraj(qUR3,qUR3PreStore,25);                       % move robot to waypoint
+                qMatrixUR3 = [qMatrixUR3; jtraj(qUR3PreStore,qUR3Store,25)];    % then to "store" position
                 % Meca 500
-                qMatrixMeca500 = jtraj(qMeca500,qMeca500Store, 100);            % move Meca to "store" position as well
+                qMatrixMeca500 = jtraj(qMeca500,qMeca500Store, 50);            % move Meca to "store" position as well
             end
             
             for step = 1:size(qMatrixUR3,1)                                     % animate robot movement
-                    self.ur3.animate(qMatrixUR3(step,:));
-                    self.meca500.animate(qMatrixMeca500(step,:));
-                    self.UpdateGripper3F;
-                    self.UpdateGripper2F;
-                    if (self.CheckCollision("table", self.ur3) > 0) || (self.CheckCollision("table", self.meca500) > 0)% check for collision
-                        disp("Damn, I hit something! Press enter to continue...")
-                        pause
-                    end
-                    pause(0.001);
+                self.ur3.animate(qMatrixUR3(step,:));
+                self.meca500.animate(qMatrixMeca500(step,:));
+                self.UpdateGripper3F;
+                self.UpdateGripper2F;
+                if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    disp("Damn, I hit something! Press enter to continue...")
+                    pause
+                end
+                drawnow;
             end
         end
         
@@ -128,30 +130,29 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             
             % get transform trajectory of the cleaning path at the window
             % input: stepsize
-            [spongePath,squeegeePath] = self.CalculateCleaningPaths(app, 0.01);
+            [spongePath,squeegeePath] = self.CalculateCleaningPaths(app, 0.03);
             
             % calculate qMatrix for every movement            
-            [qUR3Matrix1, qUR3Steps1] = self.TravelUR3("toWindow", spongePath, self.qUR3Home, 100);
-            [qUR3Matrix2, qUR3Steps2] = self.SolveRMRC(self.ur3, spongePath, qUR3Matrix1(end,:), 0.01, 1);
-            [qUR3Matrix3, qUR3Steps3] = self.TravelUR3("fromWindow", spongePath, qUR3Matrix2(end,:), 100);
-            [qUR3Matrix4, qUR3Steps4] = self.TravelUR3("toWindow", squeegeePath, qUR3Matrix3(end,:), 100);
-            [qUR3Matrix5, qUR3Steps5] = self.SolveRMRC(self.ur3, squeegeePath, qUR3Matrix4(end,:), 0.01, 1);
-            [qUR3Matrix6, qUR3Steps6] = self.TravelUR3("fromWindow", squeegeePath, qUR3Matrix5(end,:), 100);
+            [qUR3Matrix1, qUR3Steps1] = self.TravelUR3("toWindow", spongePath, self.qUR3Home, 50);
+            [qUR3Matrix2, qUR3Steps2] = self.SolveRMRC(self.ur3, spongePath, qUR3Matrix1(end,:), 0.03, 1, (self.gripperUR3offset * self.toolUR3offset));
+            [qUR3Matrix3, qUR3Steps3] = self.TravelUR3("fromWindow", spongePath, qUR3Matrix2(end,:), 50);
+            [qUR3Matrix4, qUR3Steps4] = self.TravelUR3("toWindow", squeegeePath, qUR3Matrix3(end,:), 50);
+            [qUR3Matrix5, qUR3Steps5] = self.SolveRMRC(self.ur3, squeegeePath, qUR3Matrix4(end,:), 0.03, 1, (self.gripperUR3offset * self.toolUR3offset));
+            [qUR3Matrix6, qUR3Steps6] = self.TravelUR3("fromWindow", squeegeePath, qUR3Matrix5(end,:), 50);
             
             % concatenate qMatrices 
-            qUR3Matrix = [qUR3Matrix1;
-                          qUR3Matrix2;
-                          qUR3Matrix3;
-                          qUR3Matrix4;
-                          qUR3Matrix5;
-                          qUR3Matrix6];
+            qUR3MatrixA = [qUR3Matrix1;
+                           qUR3Matrix2;
+                           qUR3Matrix3];
+            qUR3MatrixB = [qUR3Matrix4;
+                           qUR3Matrix5;
+                           qUR3Matrix6];
             
             % check for collisions in advance
+            qUR3Matrix = [qUR3MatrixA; qUR3MatrixB];
             for i=1:10:size(qUR3Matrix,1)
                 if self.CheckCollision("table", self.ur3, qUR3Matrix(i,:))
-                    fprintf(["\nWhile working I'm going to collide with something! :-( \n",...
-                             "Please remove the obstacles, so I can do my job. \n",...
-                             "If everything is clear press any key and I will start cleaning :-)\n"]);
+                    fprintf("While working I'm going to collide with something! :-( \nPlease remove the obstacles, so I can do my job. \nIf everything is clear press any key and I will start cleaning :-)\n");
                     app.TextArea.Value = [app.TextArea.Value;
                                           " ";
                                           "A collision was detected that can't be avoided.";
@@ -176,9 +177,15 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                                   " ";
                                   "Cleaning Process started."];
             
+            %%%%%%%%%% ANIMATION %%%%%%%%%%
+            %%% GET SPONGE %%%
+            self.ChangeTools("getSponge");
+            
+            %%% SPONGE PATH %%%
             slow = 0;   % flag for reduced speed
-            for i = 1:size(qUR3Matrix,1)
-                if self.CheckWorkspace
+            for i = 1:size(qUR3MatrixA,1)
+                % workspace checking
+                if (i ~= 1) & (self.CheckWorkspace ~= 0)
                     if slow == 0
                         fprintf("Something is close. I go slower now");
                         app.TextArea.Value = [app.TextArea.Value;
@@ -187,7 +194,20 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                                               "Going on with reduced speed"];
                         slow = 1;
                     end
-                    pause(0.05);
+                    % make steps in between
+                    s = 0.2:0.2:1;        %linear segment (10 steps)
+                    for j = 1:3
+                        self.ur3.animate((1-s(j))*qUR3MatrixA(i-1,:) + s(j)*qUR3MatrixA(i,:));
+                        self.UpdateGripper3F;
+                        self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                        drawnow;
+                        if app.estop == 1
+                            estopApp = EStopApp;
+                            while estopApp.estop == 0
+                                pause(1);
+                            end
+                        end
+                    end
                 elseif slow == 1
                     fprintf("Everything clear again. Let's speed up.");
                     app.TextArea.Value = [app.TextArea.Value;
@@ -197,16 +217,57 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     slow = 0;
                 end
                 
-                self.ur3.animate(qUR3Matrix(i,:));
+                % animation
+                self.ur3.animate(qUR3MatrixA(i,:));
                 self.UpdateGripper3F;
-                if app.EmergencyStopButton.Value
-                    if ~app.EmergencyStopButton.Value
-                    end
-                end
+                self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                 drawnow;
-%                 pause(0.001);
             end
             
+            %%% GET SQUEEGEE %%%
+            self.ChangeTools("switchTools");
+            
+            %%% SQUEEGEE PATH %%%
+            slow = 0;   % flag for reduced speed
+            for i = 1:size(qUR3MatrixB,1)
+                % workspace checking
+                if (i ~= 1) & (self.CheckWorkspace ~= 0)
+                    if slow == 0
+                        fprintf("Something is close. I go slower now");
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "Close obstacle detected.";
+                                              "Going on with reduced speed"];
+                        slow = 1;
+                    end
+                    % make steps in between
+                    s = 0.2:0.2:1;        %linear segment (10 steps)
+                    for j = 1:3
+                        self.ur3.animate((1-s(j))*qUR3MatrixB(i-1,:) + s(j)*qUR3MatrixB(i,:));
+                        self.UpdateGripper3F;
+                        self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                        drawnow;
+                    end
+                elseif slow == 1
+                    fprintf("Everything clear again. Let's speed up.");
+                    app.TextArea.Value = [app.TextArea.Value;
+                                          " ";
+                                          "Workspace is clear again.";
+                                          "Going on with full speed"];
+                    slow = 0;
+                end
+                
+                % animation
+                self.ur3.animate(qUR3MatrixB(i,:));
+                self.UpdateGripper3F;
+                self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                drawnow;
+            end
+            
+            %%% REMOVE SQUEEGEE %%%
+            self.ChangeTools("removeSqueegee");
+            
+            %%% FINISHED %%%
             fprintf("\nFinished! The window is clean.\n");
             app.TextArea.Value = [app.TextArea.Value;
                                   " ";
@@ -238,6 +299,18 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     pause(0.001);
                 end
                 
+                % grab with UR3
+                [qMatrixA, stepsA] = MoveUR3(self, "grabTool");
+                for i = 1:stepsA
+                    self.ur3.animate(qMatrixA(i,:));
+                    self.UpdateGripper3F;
+                    pause(0.001);
+                end
+                
+                % close 3 Finger Gripper
+                self.g3FStatus = "close";
+                self.UpdateGripper3F;
+                
                 % open 2 Finger Gripper
                 self.g2FStatus = "open";
                 self.UpdateGripper2F;
@@ -249,9 +322,27 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     pause(0.001);
                 end
+
+                % pull UR3 out
+                [qMatrixB, stepsB] = MoveUR3(self, "getTool");
+                for i = 1:stepsB
+                    self.ur3.animate(qMatrixB(i,:));
+                    self.UpdateGripper3F;
+                    self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    pause(0.001);
+                end
             end
             
             if mode == "switchTools"
+                % bring UR3 in
+                [qMatrixC, stepsC] = MoveUR3(self, "bringTool");
+                for i = 1:stepsC
+                    self.ur3.animate(qMatrixC(i,:));
+                    self.UpdateGripper3F;
+                    self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    pause(0.001);
+                end
+                
                 % grab sponge again
                 [qMatrix4, steps4] = self.MoveMeca500("sponge", "fromWait");
                 for i = 1:steps4
@@ -263,6 +354,18 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 % close 2 Finger Gripper
                 self.g2FStatus = "close";
                 self.UpdateGripper2F;
+                
+                % open 3 Finger Gripper
+                self.g3FStatus = "open";
+                self.UpdateGripper3F;
+                
+                % UR3 release tool
+                [qMatrixD, stepsD] = MoveUR3(self, "releaseTool");
+                for i = 1:stepsD
+                    self.ur3.animate(qMatrixD(i,:));
+                    self.UpdateGripper3F;
+                    pause(0.001);
+                end
                 
                 % bring sponge back
                 [qMatrix5, steps5] = self.MoveMeca500("sponge", "fromUR3");
@@ -306,6 +409,18 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     pause(0.001);
                 end
                 
+                % grab with UR3
+                [qMatrixE, stepsE] = MoveUR3(self, "grabTool");
+                for i = 1:stepsE
+                    self.ur3.animate(qMatrixE(i,:));
+                    self.UpdateGripper3F;
+                    pause(0.001);
+                end
+                
+                % close 3 Finger Gripper
+                self.g3FStatus = "close";
+                self.UpdateGripper3F; 
+                
                 % open 2 Finger Gripper
                 self.g2FStatus = "open";
                 self.UpdateGripper2F;
@@ -317,9 +432,27 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     pause(0.001);
                 end
+                
+                % pull UR3 out
+                [qMatrixF, stepsF] = MoveUR3(self, "getTool");
+                for i = 1:stepsF
+                    self.ur3.animate(qMatrixF(i,:));
+                    self.UpdateGripper3F;
+                    self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    pause(0.001);
+                end
             end
             
             if mode == "removeSqueegee"
+                % bring UR3 in
+                [qMatrixG, stepsG] = MoveUR3(self, "bringTool");
+                for i = 1:stepsG
+                    self.ur3.animate(qMatrixG(i,:));
+                    self.UpdateGripper3F;
+                    self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    pause(0.001);
+                end
+                
                 % grab squeegee again
                 [qMatrix10, steps10] = self.MoveMeca500("squeegee", "fromWait");
                 for i = 1:steps10
@@ -331,6 +464,18 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 % close 2 Finger Gripper
                 self.g2FStatus = "close";
                 self.UpdateGripper2F;
+                
+                % open 3 Finger Gripper
+                self.g3FStatus = "open";
+                self.UpdateGripper3F;
+                
+                % UR3 release tool
+                [qMatrixH, stepsH] = MoveUR3(self, "releaseTool");
+                for i = 1:stepsH
+                    self.ur3.animate(qMatrixH(i,:));
+                    self.UpdateGripper3F;
+                    pause(0.001);
+                end
                 
                 % bring squeegee back
                 [qMatrix11, steps11] = self.MoveMeca500("squeegee", "fromUR3");
@@ -356,47 +501,10 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
         end
         %% test 
         function Test(self, app)
-            app.TextArea.Value = ["Test";"another Test"];
+            disp(app.estop);
+            pause
+            app.estop = 0;
         end
-         %% move robot through waypoints
-%         function CleanWindow(self)
-%             [spongePath,squeegeePath]=self.CalculateCleaningPaths(0.01);
-%             
-%             waypoints(:,:,1) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]);
-%             waypoints(:,:,2) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]) * transl(0,0,-0.1);
-%             waypoints(:,:,3) = self.waypointUR3;
-%             waypoints(:,:,4) = spongePath(:,:,1);
-%             path1 = self.GetWaypointTrajectory(waypoints, 100);
-%             
-%             waypoints(:,:,1) = spongePath(:,:,end);
-%             waypoints(:,:,2) = self.waypointUR3 * transl(0,0,0.1);
-%             waypoints(:,:,3) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]) * transl(0,0,-0.1);
-%             waypoints(:,:,4) = self.ur3.fkine([-1.5708 -2.0429 -2.4267 -0.2428 1.5708 0]);
-%             path2 = self.GetWaypointTrajectory(waypoints, 100);
-%             
-%             
-%             qMatrix = self.SolveRMRC(self.ur3, path1, 0.01, 1);
-%             for i=1:size(qMatrix,1)
-%                 self.ur3.animate(qMatrix(i,:));
-%                 pause(0.001);
-%             end
-%             pause;
-%             
-%             qMatrix = self.SolveRMRC(self.ur3, spongePath, 0.01, 1);
-%             for i=1:size(qMatrix,1)
-%                 self.ur3.animate(qMatrix(i,:));
-%                 pause(0.001);
-%             end
-%             pause;
-%             
-%             qMatrix = self.SolveRMRC(self.ur3, path2, 0.01, 1);
-%             for i=1:size(qMatrix,1)
-%                 self.ur3.animate(qMatrix(i,:));
-%                 pause(0.001);
-%             end
-%             pause;
-%         end
-%         
-        
+              
     end
 end
