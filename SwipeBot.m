@@ -95,8 +95,13 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     qMatrixUR3 = jtraj(qUR3,qUR3Home,50);                      % else move directly to home position
                     qMatrixMeca500 = jtraj(qMeca500,qMeca500Home,50);
                 end
+                self.sponge.base = self.spongeHome;
+                self.sponge.animate(0);
+                self.squeegee.base = self.squeegeeHome;
+                self.squeegee.animate(0);
             end
             
+            % move to store position
             if choice == "store"
                 app.TextArea.Value = "Move both robots to store position.";
                 % UR3
@@ -109,7 +114,8 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 qMatrixMeca500 = jtraj(qMeca500,qMeca500Store, 50);            % move Meca to "store" position as well
             end
             
-            for step = 1:size(qMatrixUR3,1)                                     % animate robot movement
+            % animate movement
+            for step = 1:size(qMatrixUR3,1)
                 self.ur3.animate(qMatrixUR3(step,:));
                 self.meca500.animate(qMatrixMeca500(step,:));
                 self.UpdateGripper3F;
@@ -119,6 +125,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     pause
                 end
                 drawnow;
+                % E-Stop-Loop
+                if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                    estopApp = EStopApp;                    % open E-Stop-App
+                    while estopApp.estop == 0               % run empty loop to wait for user decision
+                        pause(0.5);
+                    end
+                    if estopApp.estop == 1                  % user chose continue
+                        estopApp.delete;                    % close app
+                        app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                        continue;
+                    elseif estopApp.estop == 2              % user chose exit
+                        estopApp.delete;                    % close app
+                        return;
+                    end
+                end
             end
         end
         
@@ -169,7 +190,10 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 app.TextArea.Value = [app.TextArea.Value;
                                       " ";
                                       "Home all systems."];
-                self.MoveTo("home");
+                self.MoveTo("home", app);
+                if app.EMERGENCYSTOPButton.Value == 1
+                    return;
+                end
             end
             
             fprintf("\nLet's get started!\n");
@@ -180,6 +204,9 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             %%%%%%%%%% ANIMATION %%%%%%%%%%
             %%% GET SPONGE %%%
             self.ChangeTools("getSponge");
+            if app.EMERGENCYSTOPButton.Value == 1
+                    return;
+            end
             
             %%% SPONGE PATH %%%
             slow = 0;   % flag for reduced speed
@@ -201,12 +228,6 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                         self.UpdateGripper3F;
                         self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                         drawnow;
-                        if app.estop == 1
-                            estopApp = EStopApp;
-                            while estopApp.estop == 0
-                                pause(1);
-                            end
-                        end
                     end
                 elseif slow == 1
                     fprintf("Everything clear again. Let's speed up.");
@@ -222,10 +243,28 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 self.UpdateGripper3F;
                 self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                 drawnow;
+                % E-Stop-Loop
+                if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                    estopApp = EStopApp;                    % open E-Stop-App
+                    while estopApp.estop == 0               % run empty loop to wait for user decision
+                        pause(0.5);
+                    end
+                    if estopApp.estop == 1                  % user chose continue
+                        estopApp.delete;                    % close app
+                        app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                        continue;
+                    elseif estopApp.estop == 2              % user chose exit
+                        estopApp.delete;                    % close app
+                        return;
+                    end
+                end
             end
             
             %%% GET SQUEEGEE %%%
             self.ChangeTools("switchTools");
+            if app.EMERGENCYSTOPButton.Value == 1
+                    return;
+            end
             
             %%% SQUEEGEE PATH %%%
             slow = 0;   % flag for reduced speed
@@ -262,10 +301,28 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 self.UpdateGripper3F;
                 self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                 drawnow;
+                % E-Stop-Loop
+                if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                    estopApp = EStopApp;                    % open E-Stop-App
+                    while estopApp.estop == 0               % run empty loop to wait for user decision
+                        pause(0.5);
+                    end
+                    if estopApp.estop == 1                  % user chose continue
+                        estopApp.delete;                    % close app
+                        app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                        continue;
+                    elseif estopApp.estop == 2              % user chose exit
+                        estopApp.delete;                    % close app
+                        return;
+                    end
+                end
             end
             
             %%% REMOVE SQUEEGEE %%%
             self.ChangeTools("removeSqueegee");
+            if app.EMERGENCYSTOPButton.Value == 1
+                    return;
+            end
             
             %%% FINISHED %%%
             fprintf("\nFinished! The window is clean.\n");
@@ -284,6 +341,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix1(i,:));
                     self.UpdateGripper2F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % close 2 Finger Gripper
@@ -297,6 +369,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % grab with UR3
@@ -305,6 +392,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixA(i,:));
                     self.UpdateGripper3F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % close 3 Finger Gripper
@@ -321,6 +423,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix3(i,:));
                     self.UpdateGripper2F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
 
                 % pull UR3 out
@@ -330,6 +447,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper3F;
                     self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
             end
             
@@ -341,6 +473,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper3F;
                     self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % grab sponge again
@@ -349,6 +496,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix4(i,:));
                     self.UpdateGripper2F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % close 2 Finger Gripper
@@ -365,6 +527,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixD(i,:));
                     self.UpdateGripper3F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % bring sponge back
@@ -374,6 +551,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % open 2 Finger Gripper
@@ -386,6 +578,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix6(i,:));
                     self.UpdateGripper2F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % move to squeegee
@@ -394,6 +601,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix7(i,:));
                     self.UpdateGripper2F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % close 2 Finger Gripper
@@ -407,6 +629,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % grab with UR3
@@ -415,6 +652,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixE(i,:));
                     self.UpdateGripper3F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % close 3 Finger Gripper
@@ -431,6 +683,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix9(i,:));
                     self.UpdateGripper2F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % pull UR3 out
@@ -440,6 +707,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper3F;
                     self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
             end
             
@@ -451,6 +733,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper3F;
                     self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % grab squeegee again
@@ -459,6 +756,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix10(i,:));
                     self.UpdateGripper2F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % close 2 Finger Gripper
@@ -475,6 +787,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixH(i,:));
                     self.UpdateGripper3F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % bring squeegee back
@@ -484,6 +811,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
                 
                 % open 2 Finger Gripper
@@ -496,14 +838,27 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix12(i,:));
                     self.UpdateGripper2F;
                     pause(0.001);
+                    % E-Stop-Loop
+                    if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
+                        estopApp = EStopApp;                    % open E-Stop-App
+                        while estopApp.estop == 0               % run empty loop to wait for user decision
+                            pause(0.5);
+                        end
+                        if estopApp.estop == 1                  % user chose continue
+                            estopApp.delete;                    % close app
+                            app.EMERGENCYSTOPButton.Value = 0;  % reset E-Stop
+                            continue;
+                        elseif estopApp.estop == 2              % user chose exit
+                            estopApp.delete;                    % close app
+                            return;
+                        end
+                    end
                 end
             end
         end
         %% test 
         function Test(self, app)
-            disp(app.estop);
-            pause
-            app.estop = 0;
+            app.EMERGENCYSTOPButton.Value = 0;
         end
               
     end
