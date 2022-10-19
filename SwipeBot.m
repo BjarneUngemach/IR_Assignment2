@@ -203,7 +203,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             
             %%%%%%%%%% ANIMATION %%%%%%%%%%
             %%% GET SPONGE %%%
-            self.ChangeTools("getSponge");
+            self.ChangeTools("getSponge", app);
             if app.EMERGENCYSTOPButton.Value == 1
                     return;
             end
@@ -261,7 +261,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             end
             
             %%% GET SQUEEGEE %%%
-            self.ChangeTools("switchTools");
+            self.ChangeTools("switchTools", app);
             if app.EMERGENCYSTOPButton.Value == 1
                     return;
             end
@@ -319,7 +319,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             end
             
             %%% REMOVE SQUEEGEE %%%
-            self.ChangeTools("removeSqueegee");
+            self.ChangeTools("removeSqueegee", app);
             if app.EMERGENCYSTOPButton.Value == 1
                     return;
             end
@@ -333,7 +333,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
         end
         
         %% change tools
-        function ChangeTools(self, mode)
+        function ChangeTools(self, mode, app)
             if mode == "getSponge"
                 % move Meca500 to grab sponge
                 [qMatrix1, steps1] = self.MoveMeca500("sponge", "toTool");
