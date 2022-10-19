@@ -5,9 +5,13 @@ classdef Calculations < handle
     methods
     %%% RMRC SOLVER %%%
         %% get a joint state Matrix with a Resolved Motion Rate Control
-        function [qMatrix,steps,error] = SolveRMRC(self, robot, trajectory, qStart, stepsize, speed)
+        function [qMatrix,steps,error] = SolveRMRC(self, robot, trajectory, qStart, stepsize, speed, offset)
+            if nargin < 7
+                offset = eye(4);
+            end
+            
             %%% CONSTANTS %%%
-            WEIGHT_MATRIX = diag([1 1 1 0.1 0.1 0.1]);   % Matrix of gains for RMRC
+            WEIGHT_MATRIX = diag([1 1 1 1 1 1]);   % Matrix of gains for RMRC
             THRESHOLD = 0.001;                           % threshold for DLS use
             MAX_DAMPING = 0.01;                          % max damping factor of DLS
             
@@ -20,7 +24,7 @@ classdef Calculations < handle
             error = nan(steps,1);                       % get empty position error list
             
             % offset trajectory with gripper- and tool-length
-            trajectory = pagemtimes(trajectory, (self.gripperUR3offset * self.toolUR3offset));
+            trajectory = pagemtimes(trajectory, offset);
             
             
             qMatrix(1,:) = qStart;                                                              % solve first qMatrix with inverse kinematics
@@ -155,12 +159,16 @@ classdef Calculations < handle
         end
         
         %% check if something is near the swipebot system
-        function numberCollidingPoints = CheckWorkspace(self)%, robot)
+        function numberCollidingPoints = CheckWorkspace(self)
             sphereCenter = self.table.base * transl(0,0,0.42);
             radius = 0.8;
             safetyDistance = 0;
             
-            points = [1 0 0];%self.ExtractRobotpoints(robot);
+            if ~isempty(findobj('Tag', self.hand.name))
+                points = self.ExtractRobotpoints(self.hand);
+            else
+                points = [10 0 0];
+            end
             
             numberCollidingPoints = self.IsInEllipsoid(sphereCenter,radius,radius,radius,safetyDistance,points);
         end
@@ -226,12 +234,12 @@ classdef Calculations < handle
         end
         
         %% given three corner points of the window (top left, top right, bottom left) calculate the trajectory at the window
-        function [spongePath,squeegeePath]=CalculateCleaningPaths(self, app, stepsize, windowpoints)
+        function [spongePath,squeegeePath] = CalculateCleaningPaths(self, app, stepsize, windowpoints)
             %default window
             if nargin < 4
-                windowpoints = [0.55, 0.40,1.0;
-                                0.55,-0.15,1.0;
-                                0.55, 0.40,0.4];
+                windowpoints = [0.65, 0.40,1.0;
+                                0.65,-0.15,1.0;
+                                0.65, 0.40,0.4];
             end
             %default stepsize
             if nargin < 3
@@ -250,10 +258,10 @@ classdef Calculations < handle
             disp(['The height of the window is ', num2str(height), ' m']);
             str1 = sprintf('The width of the window is %.3f m',width);
             str2 = sprintf('The height of the window is %.3f m',height);
-%             app.TextArea.Value = [app.TextArea.Value;
-%                                   " ";
-%                                   str1;
-%                                   str2];
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  str1;
+                                  str2];
             drawnow;
             
             widthVector  = unit(windowpoints(2,:)' - windowpoints(1,:)');       % unit vector along window width
@@ -269,11 +277,14 @@ classdef Calculations < handle
             windowCorner(:,:,4) = windowCorner(:,:,3) * transl(width,0,0);                        % bottom right corner transform
             
             %plot window corners
-            hold on;
-            for i=1:4
-                trplot(windowCorner(:,:,i), 'color', 'k', 'length', 0.1);
-            end
-            axis([0.4 0.6 -0.1 1.1 0.4 2.1]);
+            window = [windowpoints(1,:);
+                      windowpoints(2,:);
+                      windowpoints(2,1:2), windowpoints(3,3);
+                      windowpoints(3,:);
+                      windowpoints(1,:)];
+%             for i=1:4
+                plot3(window(:,1),window(:,2),window(:,3), '-*r');
+%             end
             axis equal;
             
                
@@ -521,7 +532,6 @@ classdef Calculations < handle
                     for i = 1:10:(size(q,1)-1)*partSteps    % take every 10th step
                         numberOfCollidingPoints = CheckCollision(self, "hand", self.ur3, qMatrix1(i,:));   % call collision checking function
                         if numberOfCollidingPoints > 0
-                            steps = 200;
                             qMatrix1 = self.TravelUR3(mode,path,qStart,steps,2);   % if collision recognized call function again with cycle = 2
                             return;
                         end
@@ -545,16 +555,16 @@ classdef Calculations < handle
                     q(3,:) = self.meca500.ikcon(spongePrePickup,q(2,:));
                     q(4,:) = self.meca500.ikcon(spongePickup,q(3,:));
                     % steps
-                    step(1) = 60;
-                    step(2) = 30;
-                    step(3) = 30;
+                    step(1) = 50;
+                    step(2) = 20;
+                    step(3) = 20;
                 end
                 if mode == "fromTool"
                     % waypoints
                     q(1,:) = self.meca500.getpos;
                     q(2,:) = self.meca500.ikcon(spongePrePickup,q(1,:));
                     % steps
-                    step(1) = 30;
+                    step(1) = 20;
                 end
                 if mode == "toUR3"
                     % waypoints
@@ -562,8 +572,8 @@ classdef Calculations < handle
                     q(2,:) = deg2rad([0 16 -40 0 26 180]);
                     q(3,:) = self.meca500.ikcon(toolChange,deg2rad([0 -18 18 0 0 180]));
                     % steps
-                    step(1) = 50;
-                    step(2) = 50;
+                    step(1) = 30;
+                    step(2) = 10;
                 end
                 if mode == "fromUR3"
                     % waypoints
@@ -571,22 +581,22 @@ classdef Calculations < handle
                     q(2,:) = deg2rad([0 16 -40 0 26 180]);
                     q(3,:) = self.meca500.ikcon(spongePickup,[0.8297 -1.2568 -0.5634 0.8452 1.7382 0.1853]);
                     % steps
-                    step(1) = 50;
-                    step(2) = 50;
+                    step(1) = 30;
+                    step(2) = 30;
                 end
                 if mode == "toWait"
                     % waypoints
                     q(1,:) = self.meca500.getpos;
                     q(2,:) = self.meca500.ikcon(waitingPos,deg2rad([0 0 0 0 0 180]));
                     % steps 
-                    step(1) = 50;
+                    step(1) = 30;
                 end
                 if mode == "fromWait"
                     % waypoints
                     q(1,:) = self.meca500.getpos;
                     q(2,:) = self.meca500.ikcon(toolChange,deg2rad([0 -18 18 0 0 180]));
                     % steps 
-                    step(1) = 50;
+                    step(1) = 30;
                 end
             end
             
@@ -600,8 +610,8 @@ classdef Calculations < handle
                     q(2,:) = self.meca500.ikcon(squeegeePrePickup,deg2rad([0 -60 -60 0 110 0]));
                     q(3,:) = self.meca500.ikcon(squeegeePickup,q(2,:));
                     % steps
-                    step(1) = 50;
-                    step(2) = 30;
+                    step(1) = 30;
+                    step(2) = 20;
                 end
                 if mode == "fromTool"
                     % waypoints
@@ -611,9 +621,9 @@ classdef Calculations < handle
                     q(4,:) = self.qMeca500Home;
                     
                     % steps
-                    step(1) = 30;
-                    step(2) = 30;
-                    step(3) = 60;
+                    step(1) = 20;
+                    step(2) = 20;
+                    step(3) = 40;
                 end
                 if mode == "toUR3"
                     % waypoints
@@ -621,8 +631,8 @@ classdef Calculations < handle
                     q(2,:) = deg2rad([0 16 -40 0 26 -180]);
                     q(3,:) = self.meca500.ikcon(toolChange,deg2rad([0 -18 18 0 0 -180]));
                     % steps
-                    step(1) = 50;
-                    step(2) = 50;
+                    step(1) = 30;
+                    step(2) = 10;
                 end
                 if mode == "fromUR3"
                     % waypoints
@@ -630,22 +640,22 @@ classdef Calculations < handle
                     q(2,:) = deg2rad([0 16 -40 0 26 -180]);
                     q(3,:) = self.meca500.ikcon(squeegeePickup,[-0.8297 -1.2568 -0.5634 -0.8452 1.7382 -0.1853]);
                     % steps
-                    step(1) = 50;
-                    step(2) = 50;
+                    step(1) = 30;
+                    step(2) = 30;
                 end
                 if mode == "toWait"
                     % waypoints
                     q(1,:) = self.meca500.getpos;
                     q(2,:) = self.meca500.ikcon(waitingPos,deg2rad([0 0 0 0 0 -180]));
                     % steps 
-                    step(1) = 50;
+                    step(1) = 30;
                 end
                 if mode == "fromWait"
                     % waypoints
                     q(1,:) = self.meca500.getpos;
                     q(2,:) = self.meca500.ikcon(toolChange,deg2rad([0 -18 18 0 0 -180]));
                     % steps 
-                    step(1) = 50;
+                    step(1) = 30;
                 end
             end
             
@@ -661,7 +671,48 @@ classdef Calculations < handle
         
         %% move UR3 to get the tools from Meca500
         function [qMatrix, steps] = MoveUR3(self, mode)
-            trTrajToTool = ctraj(self.trUR3Home, toolChangeTr*gripperUR3offset, 50)
+            if mode == "grabTool"
+                steps1 = 10;
+                qMatrix1 = jtraj(self.qUR3Home, [self.qUR3Home(1,1:5), -pi/2], steps1);
+                trTrajToTool = ctraj(self.trUR3Home*trotz(-pi/2), self.toolChangeTr*self.gripperUR3offset, 30);
+                [qMatrix2,steps2] = self.SolveRMRC(self.ur3, trTrajToTool, [self.qUR3Home(1,1:5), -pi/2], 0.01, 1);
+                
+                qMatrix = [qMatrix1; qMatrix2];
+                steps = steps1+steps2;
+            end
+            if mode == "getTool"
+                steps1 = 10;
+                q = self.ur3.getpos;
+                qMatrix1 = jtraj(q, [q(1,1:5), 0], steps1);
+                trTrajToTool = ctraj(self.toolChangeTr*self.gripperUR3offset*trotz(pi/2), self.trUR3Home,  30);
+                [qMatrix2,steps2] = self.SolveRMRC(self.ur3, trTrajToTool, [q(1,1:5), 0], 0.01, 1);
+                
+               
+                qMatrix = [qMatrix1; qMatrix2];
+                steps = steps1+steps2;
+            end     
+            if mode == "bringTool"
+                trTrajToTool = ctraj(self.trUR3Home,  self.toolChangeTr*self.gripperUR3offset*trotz(pi/2), 30);
+                [qMatrix1,steps1] = self.SolveRMRC(self.ur3, trTrajToTool, self.qUR3Home, 0.01, 1);
+                steps2 = 10;
+                q = self.ur3.ikcon(self.toolChangeTr*self.gripperUR3offset*trotz(pi/2), self.qUR3Home);
+                qMatrix2 = jtraj(q, [q(1,1:5), -pi/2], steps2);
+                
+                
+               
+                qMatrix = [qMatrix1; qMatrix2];
+                steps = steps1+steps2;
+            end
+            if mode == "releaseTool"
+                trTrajToTool = ctraj(self.toolChangeTr*self.gripperUR3offset, self.trUR3Home*trotz(-pi/2), 30);
+                [qMatrix1,steps1] = self.SolveRMRC(self.ur3, trTrajToTool, self.ur3.getpos, 0.01, 1);
+                steps2 = 10;
+                qMatrix2 = jtraj([self.qUR3Home(1,1:5), -pi/2], self.qUR3Home, steps2);
+                
+                
+                qMatrix = [qMatrix1; qMatrix2];
+                steps = steps1+steps2;
+            end     
         end
     end
 end
