@@ -131,7 +131,11 @@ classdef Calculations < handle
                 points = [points; self.ExtractRobotpoints(self.meca500)];
             end
             if ismember("hand", checkMatrix)
-                points = [points; self.ExtractRobotpoints(self.hand)];
+                if ~isempty(findobj('Tag', self.hand.name))
+                    points = [points; self.ExtractRobotpoints(self.hand)];
+                else
+                    points = [points; [10 0 0]];
+                end
             end
             
             
