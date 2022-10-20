@@ -37,10 +37,6 @@ classdef Gripper2F < handle
             
             self.g2Finger{1}.base = self.g2FBase * trotz(0 ) * transl(0, -0.0175, 0.0389) * trotx(-pi/2);
             self.g2Finger{2}.base = self.g2FBase * trotz(pi) * transl(0, -0.0175, 0.0389) * trotx(-pi/2);
-        
-%             self.g2Finger{1}.plot(0, 'workspace', self.workspace)
-%             hold on
-%             self.g2Finger{2}.plot(0, 'workspace', self.workspace)
         end
         
         %% Plot and Colour Gripper3F

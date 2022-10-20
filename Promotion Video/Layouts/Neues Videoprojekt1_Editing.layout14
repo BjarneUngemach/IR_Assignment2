@@ -137,7 +137,7 @@
 		<IsViewContainerUndocked>false</IsViewContainerUndocked>
 		<Splitter ObjectRef="20"/>
 		<HasSplitter>true</HasSplitter>
-		<ViewContainerRect>0,0,1910,488</ViewContainerRect>
+		<ViewContainerRect>0,0,1910,573</ViewContainerRect>
 		<ViewContainer Version="1">
 			<ViewContainer Index="0" ObjectRef="21"/>
 			<ViewContainer Index="1" ObjectRef="23"/>
@@ -153,7 +153,7 @@
 		<IsViewContainerUndocked>false</IsViewContainerUndocked>
 		<View ObjectRef="22"/>
 		<HasSplitter>false</HasSplitter>
-		<ViewContainerRect>0,0,1842,488</ViewContainerRect>
+		<ViewContainerRect>0,0,1842,573</ViewContainerRect>
 	</ViewContainerInfo>
 	<ViewInfo ObjectID="22" ClassID="a9abfca9-f629-4406-826c-f0f47d493d39" Version="1">
 		<ViewType>Monitor</ViewType>
@@ -164,7 +164,7 @@
 		<IsViewContainerUndocked>false</IsViewContainerUndocked>
 		<View ObjectRef="24"/>
 		<HasSplitter>false</HasSplitter>
-		<ViewContainerRect>1848,0,1910,488</ViewContainerRect>
+		<ViewContainerRect>1848,0,1910,573</ViewContainerRect>
 	</ViewContainerInfo>
 	<ViewInfo ObjectID="24" ClassID="a9abfca9-f629-4406-826c-f0f47d493d39" Version="1">
 		<ViewType>ClipOptions</ViewType>
@@ -175,7 +175,7 @@
 		<IsViewContainerUndocked>false</IsViewContainerUndocked>
 		<Splitter ObjectRef="26"/>
 		<HasSplitter>true</HasSplitter>
-		<ViewContainerRect>0,494,1910,900</ViewContainerRect>
+		<ViewContainerRect>0,579,1910,900</ViewContainerRect>
 		<ViewContainer Version="1">
 			<ViewContainer Index="0" ObjectRef="27"/>
 			<ViewContainer Index="1" ObjectRef="29"/>
@@ -202,7 +202,7 @@
 		<IsViewContainerUndocked>false</IsViewContainerUndocked>
 		<View ObjectRef="30"/>
 		<HasSplitter>false</HasSplitter>
-		<ViewContainerRect>0,22,1910,406</ViewContainerRect>
+		<ViewContainerRect>0,22,1910,321</ViewContainerRect>
 	</ViewContainerInfo>
 	<ViewInfo ObjectID="30" ClassID="a9abfca9-f629-4406-826c-f0f47d493d39" Version="1">
 		<ViewType>Timeline</ViewType>
@@ -243,7 +243,7 @@
 		<WorkspaceID>Expert</WorkspaceID>
 	</FloatingContainerInfo>
 	<FloatingContainerInfo ObjectID="38" ClassID="16303efd-7292-4638-b531-c6c43d502f65" Version="1">
-		<FloatingContainerRect>0,0,440,280</FloatingContainerRect>
+		<FloatingContainerRect>0,0,440,630</FloatingContainerRect>
 		<ViewType>Titles</ViewType>
 		<WorkspaceID>Expert</WorkspaceID>
 	</FloatingContainerInfo>

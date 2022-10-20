@@ -2,8 +2,9 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
     
     properties
         base = eye(4);
-        workspace = [-0.31 0.8 -0.5 0.5 0 1.1]
+        workspace = [-0.31 0.8 -0.5 0.5 -0 1.1]
         toolChangeTr = transl(0,-0.12,0.4) * troty(-pi);
+        environment;
     end
 
     properties (Hidden)
@@ -62,6 +63,8 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             self.UpdateSponge(self.spongeHome);
             self.UpdateSqueegee(self.squeegeeHome);
             self.hand.base = self.handPos1;
+            self.environment = PlaceObject("Environment.ply", [0,0,-0.2]);
+            view(135,170);
         end
     end
     
@@ -340,6 +343,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps1
                     self.meca500.animate(qMatrix1(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -368,6 +372,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix2(i,:));
                     self.UpdateGripper2F;
                     self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -392,6 +397,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixA(i,:));
                     self.UpdateGripper3F;
                     pause(0.001);
+                    drawnow;
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -422,6 +428,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps3
                     self.meca500.animate(qMatrix3(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -446,6 +453,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixB(i,:));
                     self.UpdateGripper3F;
                     self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -472,6 +480,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixC(i,:));
                     self.UpdateGripper3F;
                     self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -495,6 +504,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps4
                     self.meca500.animate(qMatrix4(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -526,6 +536,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:stepsD
                     self.ur3.animate(qMatrixD(i,:));
                     self.UpdateGripper3F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -550,6 +561,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix5(i,:));
                     self.UpdateGripper2F;
                     self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -577,6 +589,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps6
                     self.meca500.animate(qMatrix6(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -600,6 +613,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps7
                     self.meca500.animate(qMatrix7(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -628,6 +642,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix8(i,:));
                     self.UpdateGripper2F;
                     self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -651,6 +666,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:stepsE
                     self.ur3.animate(qMatrixE(i,:));
                     self.UpdateGripper3F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -682,6 +698,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps9
                     self.meca500.animate(qMatrix9(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -706,6 +723,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixF(i,:));
                     self.UpdateGripper3F;
                     self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -732,6 +750,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixG(i,:));
                     self.UpdateGripper3F;
                     self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -755,6 +774,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps10
                     self.meca500.animate(qMatrix10(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -786,6 +806,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:stepsH
                     self.ur3.animate(qMatrixH(i,:));
                     self.UpdateGripper3F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -810,6 +831,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix11(i,:));
                     self.UpdateGripper2F;
                     self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
@@ -837,6 +859,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps12
                     self.meca500.animate(qMatrix12(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd

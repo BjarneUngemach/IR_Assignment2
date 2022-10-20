@@ -5,7 +5,7 @@ classdef Squeegee < handle
     end
     
     properties (Hidden)
-        squeegeeHome = transl(-0.1, -0.12, 0.05)*trotz(0);%transl(-0.1, -0.12, 0.17)*troty(pi);
+        squeegeeHome = transl(-0.1, -0.12, 0.05)
     end
     
     methods
