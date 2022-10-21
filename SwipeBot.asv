@@ -1125,7 +1125,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
         end
         
         %% animate a IBVS
-        function RunIBVS(self, app)
+        function RunIBVS(self)
             % simulate meca 500 to bring the sign
             tr = self.toolChangeTr * self.gripperMeca500offset;
             qTr = self.meca500.ikcon(tr,deg2rad([0 -18 18 0 0 180]));
@@ -1155,15 +1155,15 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                                 'resolution', [1024 1024], 'centre', [512 512],...
                                 'name', 'IBVS Camera');   
             cam.plot(goalPoints, '*');
-            cam.hold;
             
             % initial values
             qUR3 = self.ur3.getpos;
-            qRef = zeros(1,6);
-%             cornerPoints = zeros(4,3);
-%             middlePoint = zeros(3,1);
+            qRef = nan(1,6);
+            sphere_h = 0;
+            cornerPoints = zeros(4,3);
+            middlePoint = zeros(3,1
             
-            while app.RunIBVSButton.Value == 1
+            for i = 1:200
                 eePos = self.ur3.fkine(qUR3);                % get current position
                 cam.T = eePos;
                 
@@ -1173,8 +1173,14 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     signPos = self.meca500.fkine(qMeca500)/self.gripperMeca500offset; 
                     middlePoint = signPos(1:3,4);
                     cornerPoints = [signPos * [cornerPointsLocal',ones(size(cornerPointsLocal',1),1)]']';
-                end
 
+                    delete(sphere_h);
+                    sphere_h = plot_sphere(cornerPoints(:,1:3)', 0.01, 'r');
+                end
+                
+                
+                
+                
                 picturePoints = cam.plot(cornerPoints(:,1:3)', 'Tcam', eePos, 'o');        % calculate error
                 pointError = goalPoints - picturePoints;
                 pointError = pointError(:);
@@ -1196,11 +1202,6 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 drawnow;
                 pause(1/fps);
             end
-            
-            % simulate meca 500 to bring back the sign
-            self.meca500.animate(qTr);
-            self.UpdateGripper2F;
-            
         end
         
         %% test 
