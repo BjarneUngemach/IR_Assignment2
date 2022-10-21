@@ -131,7 +131,11 @@ classdef Calculations < handle
                 points = [points; self.ExtractRobotpoints(self.meca500)];
             end
             if ismember("hand", checkMatrix)
-                points = [points; self.ExtractRobotpoints(self.hand)];
+                if ~isempty(findobj('Tag', self.hand.name))
+                    points = [points; self.ExtractRobotpoints(self.hand)];
+                else
+                    points = [points; [10 0 0]];
+                end
             end
             
             
@@ -237,9 +241,9 @@ classdef Calculations < handle
         function [spongePath,squeegeePath] = CalculateCleaningPaths(self, app, stepsize, windowpoints)
             %default window
             if nargin < 4
-                windowpoints = [0.65, 0.40,1.0;
-                                0.65,-0.15,1.0;
-                                0.65, 0.40,0.4];
+                windowpoints = [0.65, 0.45,0.9;
+                                0.65,-0.20,0.9;
+                                0.65, 0.45,0.4];
             end
             %default stepsize
             if nargin < 3
@@ -325,7 +329,7 @@ classdef Calculations < handle
             angle = pi/angleSteps;                                % "real" turn angle
             turn = 1;                                             % direction of first turn ("+1" for right turn, "-1" for left turn)
             
-            for i = 1:heightSteps           % iterate through lines
+            for i = 1:heightSteps-1           % iterate through lines
                 for j = 1:widthSteps        % iterate through straight parts
                     spongePath(:,:,step) = spongePath(:,:,step-1) * transl(stepsize, 0, 0); % move transform one stepsize further straight
                     step = step+1;          % increment step count

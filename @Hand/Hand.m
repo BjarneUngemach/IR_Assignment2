@@ -31,7 +31,8 @@ classdef Hand < handle
             self.hand.points = {[vertexData(:,1),vertexData(:,2),vertexData(:,3)], []};
             
             % Display hand
-            self.hand.plot3d(0,'noarrow','workspace',self.workspace);
+            [az, el] = view;    % get current line of sight
+            self.hand.plot3d(0,'noarrow','workspace',self.workspace,'view',[az el]);
             if isempty(findobj(get(gca,'Children'),'Type','Light'))
                 camlight
             end

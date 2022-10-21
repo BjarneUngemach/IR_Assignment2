@@ -5,7 +5,7 @@ classdef Sponge < handle
     end
     
     properties (Hidden)
-        spongeHome = transl(0.1, -0.12, 0.05)*trotz(0);%transl(0.1, -0.12, 0.17)*troty(pi);
+        spongeHome = transl(0.1, -0.12, 0.05)
     end
     
     methods

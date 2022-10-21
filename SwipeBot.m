@@ -2,8 +2,10 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
     
     properties
         base = eye(4);
-        workspace = [-0.31 0.8 -0.5 0.5 0 1.1]
+        workspace = [-0.31 0.8 -0.5 0.5 -0.21 1.1]
         toolChangeTr = transl(0,-0.12,0.4) * troty(-pi);
+        environment;
+        floor;
     end
 
     properties (Hidden)
@@ -62,6 +64,10 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             self.UpdateSponge(self.spongeHome);
             self.UpdateSqueegee(self.squeegeeHome);
             self.hand.base = self.handPos1;
+            self.environment = PlaceObject("Environment.ply", [0,0,-0.2]);
+            self.floor = surf([-4,-4;4.3,4.3],[-1.6,3.6;-1.6,3.6],[-0.2,-0.2;-0.2,-0.2],...
+                         'CData',imread('Grass.jpg'),'FaceColor','texturemap');
+            view(135,170);
         end
     end
     
@@ -84,7 +90,11 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             
             % move to home position
             if choice == "home"
-                app.TextArea.Value = "Move both robots to home position.";
+                app.TextArea.Value = [app.TextArea.Value;
+                                      " ";
+                                      "Move both robots to home position."];
+                drawnow;
+                scroll(app.TextArea, 'bottom');
                 
                 if 0.0001 > self.ur3.getpos - qUR3Store                         % if robot is in "store" position...
                     % UR3
@@ -103,7 +113,12 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             
             % move to store position
             if choice == "store"
-                app.TextArea.Value = "Move both robots to store position.";
+                app.TextArea.Value = [app.TextArea.Value;
+                                      " ";
+                                      "Move both robots to store position."];
+                drawnow;
+                scroll(app.TextArea, 'bottom');
+                
                 % UR3
                 if (0.0001 < sum(self.ur3.getpos - qUR3Home)) || (0.0001 < sum(self.meca500.getpos - qMeca500Home)) % if robot is NOT at home position...
                     self.MoveTo("home");                                        % move robot there first
@@ -120,9 +135,14 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 self.meca500.animate(qMatrixMeca500(step,:));
                 self.UpdateGripper3F;
                 self.UpdateGripper2F;
-                if (self.CheckCollision("table", self.ur3) > 0)% check for collision
-                    disp("Damn, I hit something! Press enter to continue...")
-                    pause
+                if (self.CheckCollision(["table","hand"], self.ur3) > 0)% check for collision
+                    app.TextArea.Value = [app.TextArea.Value;
+                                          " ";
+                                          "COLLISION DETECTED!";
+                                          "E-Stop triggered"];
+                    drawnow;
+                    scroll(app.TextArea, 'bottom');
+                    app.EMERGENCYSTOPButton.Value = 1;
                 end
                 drawnow;
                 % E-Stop-Loop
@@ -145,9 +165,12 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
         
         %% play the window cleaning program
         function CleanWindow(self,app)
-            fprintf("\nLet me calculate the trajectories...\n\n");
-            app.TextArea.Value = "Calculating trajectories...";
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  "Calculating trajectories..."];
             drawnow;
+            scroll(app.TextArea, 'bottom');
+
             
             % get transform trajectory of the cleaning path at the window
             % input: stepsize
@@ -173,12 +196,13 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             qUR3Matrix = [qUR3MatrixA; qUR3MatrixB];
             for i=1:10:size(qUR3Matrix,1)
                 if self.CheckCollision("table", self.ur3, qUR3Matrix(i,:))
-                    fprintf("While working I'm going to collide with something! :-( \nPlease remove the obstacles, so I can do my job. \nIf everything is clear press any key and I will start cleaning :-)\n");
                     app.TextArea.Value = [app.TextArea.Value;
                                           " ";
                                           "A collision was detected that can't be avoided.";
                                           "Please remove the obstacles from the workspace.";
                                           "If everything is clear press any key and the cleaning process will start."];
+                    drawnow;
+                    scroll(app.TextArea, 'bottom');
                     pause;
                     break;
                 end
@@ -186,20 +210,22 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                                                                                                           
             % home both robots if not already done
             if (0.0001 < sum((self.ur3.getpos - self.qUR3Home).^2)) || (0.0001 < sum((self.meca500.getpos - self.qMeca500Home).^2))
-                fprintf("\nI'll home everything first to be sure everything is ready.\n")
                 app.TextArea.Value = [app.TextArea.Value;
                                       " ";
                                       "Home all systems."];
+                drawnow;
+                scroll(app.TextArea, 'bottom');
                 self.MoveTo("home", app);
                 if app.EMERGENCYSTOPButton.Value == 1
                     return;
                 end
             end
             
-            fprintf("\nLet's get started!\n");
             app.TextArea.Value = [app.TextArea.Value;
                                   " ";
-                                  "Cleaning Process started."];
+                                  "Cleaning Process started..."];
+            drawnow;
+            scroll(app.TextArea, 'bottom');
             
             %%%%%%%%%% ANIMATION %%%%%%%%%%
             %%% GET SPONGE %%%
@@ -209,16 +235,23 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             end
             
             %%% SPONGE PATH %%%
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  "Cleaning the window..."];
+            drawnow;
+            scroll(app.TextArea, 'bottom');
+            
             slow = 0;   % flag for reduced speed
             for i = 1:size(qUR3MatrixA,1)
                 % workspace checking
                 if (i ~= 1) & (self.CheckWorkspace ~= 0)
                     if slow == 0
-                        fprintf("Something is close. I go slower now");
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "Close obstacle detected.";
                                               "Going on with reduced speed"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
                         slow = 1;
                     end
                     % make steps in between
@@ -230,11 +263,12 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                         drawnow;
                     end
                 elseif slow == 1
-                    fprintf("Everything clear again. Let's speed up.");
                     app.TextArea.Value = [app.TextArea.Value;
                                           " ";
                                           "Workspace is clear again.";
                                           "Going on with full speed"];
+                    drawnow;
+                    scroll(app.TextArea, 'bottom');
                     slow = 0;
                 end
                 
@@ -243,6 +277,15 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 self.UpdateGripper3F;
                 self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                 drawnow;
+                if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    app.TextArea.Value = [app.TextArea.Value;
+                                          " ";
+                                          "COLLISION DETECTED!";
+                                          "E-Stop triggered"];
+                    drawnow;
+                    scroll(app.TextArea, 'bottom');
+                    app.EMERGENCYSTOPButton.Value = 1;
+                end
                 % E-Stop-Loop
                 if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                     estopApp = EStopApp;                    % open E-Stop-App
@@ -261,22 +304,35 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             end
             
             %%% GET SQUEEGEE %%%
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  "Changing tools..."];
+            drawnow;
+            scroll(app.TextArea, 'bottom');
+            
             self.ChangeTools("switchTools", app);
             if app.EMERGENCYSTOPButton.Value == 1
                     return;
             end
             
             %%% SQUEEGEE PATH %%%
+            app.TextArea.Value = [app.TextArea.Value;
+                                  " ";
+                                  "Drying the window..."];
+            drawnow;
+            scroll(app.TextArea, 'bottom');
+            
             slow = 0;   % flag for reduced speed
             for i = 1:size(qUR3MatrixB,1)
                 % workspace checking
                 if (i ~= 1) & (self.CheckWorkspace ~= 0)
                     if slow == 0
-                        fprintf("Something is close. I go slower now");
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "Close obstacle detected.";
                                               "Going on with reduced speed"];
+                        scroll(app.TextArea, 'bottom');
+                        drawnow;
                         slow = 1;
                     end
                     % make steps in between
@@ -288,11 +344,12 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                         drawnow;
                     end
                 elseif slow == 1
-                    fprintf("Everything clear again. Let's speed up.");
                     app.TextArea.Value = [app.TextArea.Value;
                                           " ";
                                           "Workspace is clear again.";
                                           "Going on with full speed"];
+                    drawnow;
+                    scroll(app.TextArea, 'bottom');
                     slow = 0;
                 end
                 
@@ -301,6 +358,15 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 self.UpdateGripper3F;
                 self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                 drawnow;
+                if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    app.TextArea.Value = [app.TextArea.Value;
+                                          " ";
+                                          "COLLISION DETECTED!";
+                                          "E-Stop triggered"];
+                    drawnow;
+                    scroll(app.TextArea, 'bottom');
+                    app.EMERGENCYSTOPButton.Value = 1;
+                end
                 % E-Stop-Loop
                 if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                     estopApp = EStopApp;                    % open E-Stop-App
@@ -325,11 +391,12 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             end
             
             %%% FINISHED %%%
-            fprintf("\nFinished! The window is clean.\n");
             app.TextArea.Value = [app.TextArea.Value;
                                   " ";
                                   "Cleaning-Process finished.";
                                   "Enjoy your clean windows."];
+            drawnow;
+            scroll(app.TextArea, 'bottom');
         end
         
         %% change tools
@@ -340,7 +407,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps1
                     self.meca500.animate(qMatrix1(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -368,7 +445,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix2(i,:));
                     self.UpdateGripper2F;
                     self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -392,6 +479,16 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixA(i,:));
                     self.UpdateGripper3F;
                     pause(0.001);
+                    drawnow;
+                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -422,7 +519,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps3
                     self.meca500.animate(qMatrix3(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -446,7 +553,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixB(i,:));
                     self.UpdateGripper3F;
                     self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -472,7 +589,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixC(i,:));
                     self.UpdateGripper3F;
                     self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -495,7 +622,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps4
                     self.meca500.animate(qMatrix4(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -526,7 +663,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:stepsD
                     self.ur3.animate(qMatrixD(i,:));
                     self.UpdateGripper3F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -550,7 +697,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix5(i,:));
                     self.UpdateGripper2F;
                     self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -577,7 +734,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps6
                     self.meca500.animate(qMatrix6(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -600,7 +767,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps7
                     self.meca500.animate(qMatrix7(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -628,7 +805,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix8(i,:));
                     self.UpdateGripper2F;
                     self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -651,7 +838,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:stepsE
                     self.ur3.animate(qMatrixE(i,:));
                     self.UpdateGripper3F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -682,7 +879,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps9
                     self.meca500.animate(qMatrix9(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -706,7 +913,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixF(i,:));
                     self.UpdateGripper3F;
                     self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -732,7 +949,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.ur3.animate(qMatrixG(i,:));
                     self.UpdateGripper3F;
                     self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -755,7 +982,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps10
                     self.meca500.animate(qMatrix10(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -786,7 +1023,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:stepsH
                     self.ur3.animate(qMatrixH(i,:));
                     self.UpdateGripper3F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -810,7 +1057,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.meca500.animate(qMatrix11(i,:));
                     self.UpdateGripper2F;
                     self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -837,7 +1094,17 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 for i = 1:steps12
                     self.meca500.animate(qMatrix12(i,:));
                     self.UpdateGripper2F;
+                    drawnow;
                     pause(0.001);
+                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                        app.TextArea.Value = [app.TextArea.Value;
+                                              " ";
+                                              "COLLISION DETECTED!";
+                                              "E-Stop triggered"];
+                        drawnow;
+                        scroll(app.TextArea, 'bottom');
+                        app.EMERGENCYSTOPButton.Value = 1;
+                    end
                     % E-Stop-Loop
                     if app.EMERGENCYSTOPButton.Value == 1       % if E-Stop triggerd
                         estopApp = EStopApp;                    % open E-Stop-App
@@ -856,6 +1123,86 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 end
             end
         end
+        
+        %% animate a IBVS
+        function RunIBVS(self, app)
+            % simulate meca 500 to bring the sign
+            tr = self.toolChangeTr * self.gripperMeca500offset;
+            qTr = self.meca500.ikcon(tr,deg2rad([0 -18 18 0 0 180]));
+            self.meca500.animate(qTr);
+            self.UpdateGripper2F;
+            
+            
+            % gain
+            lambda = 1;
+            
+            % servoing speed
+            fps = 25;
+            
+            % Image goal points
+            goalPoints = [626, 398, 398, 626;        % joint state [-0.0000   -1.2852   -1.7299   -1.6972    1.5708   -0.0000]
+                          389, 389, 617, 617];
+%             PStar = [657, 399, 394, 655;        % joint state [0.8330   -1.3682   -2.2793   -1.5167    1.1626    0.9093]
+%                      381, 340, 699, 668];
+
+            % corner points of sign in local coordinate frame
+            cornerPointsLocal = [ 0.05,-0.05,-0.05, 0.05;
+                                 -0.05,-0.05, 0.05, 0.05;
+                                  0   , 0   , 0   , 0   ];
+           
+            %camera
+            cam = CentralCamera('focal', 0.10, 'pixel', 10e-5, ...
+                                'resolution', [1024 1024], 'centre', [512 512],...
+                                'name', 'IBVS Camera');   
+            cam.plot(goalPoints, '*');
+            cam.hold;
+            
+            % initial values
+            qUR3 = self.ur3.getpos;
+            qRef = zeros(1,6);
+%             cornerPoints = zeros(4,3);
+%             middlePoint = zeros(3,1);
+            
+            while app.RunIBVSButton.Value == 1
+                eePos = self.ur3.fkine(qUR3);                % get current position
+                cam.T = eePos;
+                
+                qMeca500 = self.meca500.getpos;
+                if any(abs(qRef - qMeca500) > 0.001)
+                    qRef = qMeca500;
+                    signPos = self.meca500.fkine(qMeca500)/self.gripperMeca500offset; 
+                    middlePoint = signPos(1:3,4);
+                    cornerPoints = [signPos * [cornerPointsLocal',ones(size(cornerPointsLocal',1),1)]']';
+                end
+
+                picturePoints = cam.plot(cornerPoints(:,1:3)', 'Tcam', eePos, 'o');        % calculate error
+                pointError = goalPoints - picturePoints;
+                pointError = pointError(:);
+                
+                depth = sqrt(sum((middlePoint - eePos(1:3,4)).^2));        % calculate camera distance
+                
+                IJ = cam.visjac_p(picturePoints, depth);                % get Image Jacobian
+                
+                camVel = lambda * pinv(IJ) * pointError;                % solve for camera velocity
+                
+                J = self.ur3.jacobn(qUR3);                                 % Robot Jacobian in tool frame
+                
+                qdot = pinv(J) * camVel;                                % solve RMRC
+                qUR3 = qUR3 + (1/fps)*qdot';
+                
+                self.ur3.animate(qUR3);                                    % update robot
+                self.UpdateGripper3F;
+                
+                drawnow;
+                pause(1/fps);
+            end
+            
+            % simulate meca 500 to bring back the sign
+            self.meca500.animate(qTr);
+            self.UpdateGripper2F;
+            
+        end
+        
         %% test 
         function Test(self, app)
             app.EMERGENCYSTOPButton.Value = 0;
