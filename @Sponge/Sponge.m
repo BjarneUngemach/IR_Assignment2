@@ -53,13 +53,13 @@ classdef Sponge < handle
             end
         end
         
-        %% update position of gripper
+        %% update position of sponge
         function UpdateSponge(self, pose)
             
             % change base of sponge to given pose
             self.sponge.base = pose;
             
-            % plot updated gripper
+            % plot updated sponge
             self.sponge.animate(0)
         end
     end
