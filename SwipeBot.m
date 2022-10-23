@@ -196,7 +196,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             % check for collisions in advance
             qUR3Matrix = [qUR3MatrixA; qUR3MatrixB];
             for i=1:10:size(qUR3Matrix,1)
-                if self.CheckCollision("table", self.ur3, qUR3Matrix(i,:))
+                if self.CheckCollision(["table" "hand"], self.ur3, qUR3Matrix(i,:))
                     app.TextArea.Value = [app.TextArea.Value;
                                           " ";
                                           "A collision was detected that can't be avoided.";
@@ -278,7 +278,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 self.UpdateGripper3F;
                 self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                 drawnow;
-                if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                     app.TextArea.Value = [app.TextArea.Value;
                                           " ";
                                           "COLLISION DETECTED!";
@@ -359,7 +359,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 self.UpdateGripper3F;
                 self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                 drawnow;
-                if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                     app.TextArea.Value = [app.TextArea.Value;
                                           " ";
                                           "COLLISION DETECTED!";
@@ -410,7 +410,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -448,7 +448,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -481,7 +481,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper3F;
                     pause(0.001);
                     drawnow;
-                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -522,7 +522,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -556,7 +556,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -592,7 +592,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateSponge(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -625,7 +625,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -666,7 +666,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper3F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -700,7 +700,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateSponge(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -737,7 +737,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -770,7 +770,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -808,7 +808,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -841,7 +841,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper3F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -882,7 +882,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -916,7 +916,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -952,7 +952,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateSqueegee(self.ur3.fkine(self.ur3.getpos)/(self.gripperUR3offset));
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -985,7 +985,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -1026,7 +1026,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper3F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.ur3) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.ur3) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -1060,7 +1060,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateSqueegee(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";
@@ -1097,7 +1097,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                     self.UpdateGripper2F;
                     drawnow;
                     pause(0.001);
-                    if (self.CheckCollision("table", self.meca500) > 0)% check for collision
+                    if (self.CheckCollision(["table" "hand"], self.meca500) > 0)% check for collision
                         app.TextArea.Value = [app.TextArea.Value;
                                               " ";
                                               "COLLISION DETECTED!";

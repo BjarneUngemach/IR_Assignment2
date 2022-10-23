@@ -90,14 +90,14 @@ classdef Calculations < handle
                              0       0       0.0168  0       0       0;
                              0       0.0288  0       pi/2    0       0;
                              0       0       0.0186  0       0       0;
-                             0       0      -0.0053  0       0       0];
+                             0       0       0.0347  0       0       0];
             % shape matrix defines geometry of collision checking cage (first collumn defines shape: "1" for cylinder, "2" for prism) 
             SHAPE_UR3    =  [1      0.0450  0.0450  0.2058;                 % shapes of UR3
                              1      0.0549  0.0549  0.3265;
                              1      0.0487  0.0487  0.2818;
                              1      0.0315  0.0315  0.0972;
                              1      0.0315  0.0315  0.0947;
-                             1      0.0315  0.0315  0.1395];
+                             1      0.0315  0.0315  0.2195];
             SHAPE_MECA500=  [1      0.1000  0.1000  0.1675;
                              2      0.0999  0.0685  0.1945;
                              2      0.0640  0.0450  0.0885;
