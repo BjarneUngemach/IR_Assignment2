@@ -13,6 +13,10 @@ classdef Sign < handle
         plyDataSign = [];
     end
     
+     properties (Hidden)
+        signHome = transl(0.15,0.15,0.1)*trotz(-pi/2)*trotx(pi/2)
+    end
+    
     methods
         %% ...structors
         function self = Sign
@@ -56,7 +60,18 @@ classdef Sign < handle
 %             
 %             h.link(1).Children.FaceColor = 'interp';
         end
+            %% update position of gripper
+    function UpdateSign(self, pose)
+    
+    % change base of sponge to given pose
+    self.sign.base = pose;
+    
+    % plot updated gripper
+    self.sign.animate(0)
     end
+    end
+    
+
 end
 
 
