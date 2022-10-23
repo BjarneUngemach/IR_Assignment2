@@ -1,4 +1,4 @@
-classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table & Sponge & Squeegee & Hand & Sign
+classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table & Sponge & Squeegee & Sign & Hand
     
     properties
         base = eye(4);
@@ -1128,60 +1128,39 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
         %% animate a IBVS
         function RunIBVS(self, app)
             % simulate meca 500 to bring the sign
-                        steps = 100
+            steps = 50;
             
-            current_q = swipebot.meca500.getpos;
-            
-            sign_pickup = transl(0.1,0.15,0.155)*trotx(pi)
-            
-            sign_q_guess = [1.5718   -0.0107   -0.6698         0   -0.8884         0];
-            
-            sign_pickup_q = swipebot.meca500.ikcon(sign_pickup, sign_q_guess)
-            
-            pickup_sign = jtraj(current_q, sign_pickup_q, steps)
+            current_q = self.meca500.getpos;
+            sign_pickup = self.signHome * self.gripperMeca500offset;
+            sign_pickup_q = self.meca500.ikcon(sign_pickup, [pi/2 0 0 0 -pi/2 pi]);
+            pickup_sign = jtraj(current_q, [pi/2 0 0 0 -pi/2 pi], steps/2);
+            pickup_sign = [pickup_sign; jtraj([pi/2 0 0 0 -pi/2 pi], sign_pickup_q, steps/2)];
             
             for i=1:steps
-                swipebot.meca500.animate(pickup_sign(i,:))
-                swipebot.UpdateGripper2F
-                 
-                pause(0.01);
+                self.meca500.animate(pickup_sign(i,:))
+                self.UpdateGripper2F
+                pause(0.001);
             end
-             
-            
        
-            tr = swipebot.toolChangeTr * swipebot.gripperMeca500offset;
-            qTr = swipebot.meca500.ikcon(tr,deg2rad([0 -18 18 0 0 0]));
-            toolChange_traj = jtraj(sign_pickup_q, qTr, steps)
-            
-            for i=1:steps
-                
-                swipebot.meca500.animate(toolChange_traj(i,:))
-                swipebot.UpdateGripper2F
-                
-                ee_current = swipebot.meca500.fkine(swipebot.meca500.getpos)
-                swipebot.sign.base = ee_current*transl(0.03685, 0, 0.051)*troty(-pi/2)
-                swipebot.sign.animate(0)
-                pause(0.01)
-                
-            end
-           
-            
-            
-            
-            
-           
+
             tr = self.toolChangeTr * self.gripperMeca500offset;
             qTr = self.meca500.ikcon(tr,deg2rad([0 -18 18 0 0 180]));
-            self.meca500.animate(qTr);
-            self.UpdateGripper2F;
+            toolChange_traj = jtraj(sign_pickup_q, [pi/2 0 0 0 -pi/2 pi], steps/2);
+            toolChange_traj = [toolChange_traj; jtraj([pi/2 0 0 0 -pi/2 pi], qTr, steps/2)];
+            
+            for i=1:steps
+                self.meca500.animate(toolChange_traj(i,:))
+                self.UpdateGripper2F
+                self.UpdateSign(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                pause(0.001)
+            end
             
             
+            %%% run IBVS loop %%%
             % gain
             lambda = 1;
-            
             % servoing speed
             fps = 25;
-            
             % Image goal points
             goalPoints = [626, 398, 398, 626;        % joint state [-0.0000   -1.2852   -1.7299   -1.6972    1.5708   -0.0000]
                           389, 389, 617, 617];
@@ -1203,8 +1182,6 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             % initial values
             qUR3 = self.ur3.getpos;
             qRef = zeros(1,6);
-%             cornerPoints = zeros(4,3);
-%             middlePoint = zeros(3,1);
             
             while app.RunIBVSButton.Value == 1
                 eePos = self.ur3.fkine(qUR3);                % get current position
@@ -1212,6 +1189,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 
                 qMeca500 = self.meca500.getpos;
                 if any(abs(qRef - qMeca500) > 0.001)
+                    self.UpdateSign(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
                     qRef = qMeca500;
                     signPos = self.meca500.fkine(qMeca500)/self.gripperMeca500offset; 
                     middlePoint = signPos(1:3,4);
@@ -1241,19 +1219,21 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             end
             
             % simulate meca 500 to bring back the sign
+            toolChange_traj = jtraj(self.meca500.getpos, [pi/2 0 0 0 -pi/2 pi], steps/2);
+            toolChange_traj = [toolChange_traj; jtraj([pi/2 0 0 0 -pi/2 pi], sign_pickup_q, steps/2)];
             for i=1:steps
-                swipebot.meca500.animate(signreturn_traj(i,:))
-                swipebot.UpdateGripper2F
-                
-                ee_current = swipebot.meca500.fkine(swipebot.meca500.getpos)
-                swipebot.sign.base = ee_current*transl(0.03685, 0, 0.051)*troty(-pi/2)
-                swipebot.sign.animate(0)
-                pause(0.01)
-                
+                self.meca500.animate(toolChange_traj(i,:))
+                self.UpdateGripper2F
+                self.UpdateSign(self.meca500.fkine(self.meca500.getpos)/(self.gripperMeca500offset));
+                pause(0.001)
             end
-            self.meca500.animate(qTr);
-            self.UpdateGripper2F;
-            
+            pickup_sign = jtraj(sign_pickup_q, [pi/2 0 0 0 -pi/2 pi], steps/2);
+            pickup_sign = [pickup_sign; jtraj([pi/2 0 0 0 -pi/2 pi], self.qMeca500Home, steps/2)];
+            for i=1:steps
+                self.meca500.animate(pickup_sign(i,:))
+                self.UpdateGripper2F
+                pause(0.001);
+            end
         end
         
         %% test 
