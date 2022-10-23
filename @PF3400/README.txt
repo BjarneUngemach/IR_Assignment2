@@ -1,2 +1,0 @@
-The PF3400 uses a linear rail, that translates into the positive z-direction.
-To make that work without errors, one have to comment out line 90-99 in the function SerialLink.animate from the robotics toolbox.
