@@ -4,8 +4,8 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
         base = eye(4);
         workspace = [-0.31 0.8 -0.5 0.5 -0.21 1.1]
         toolChangeTr = transl(0,-0.12,0.4) * troty(-pi);
-        environment;
-        floor;
+        %environment;
+        %floor;
     end
 
     properties (Hidden)
@@ -65,9 +65,9 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
             self.UpdateSqueegee(self.squeegeeHome);
             self.UpdateSign(self.signHome);
             self.hand.base = self.handPos1;
-            self.environment = PlaceObject("Environment.ply", [0,0,-0.2]);
-            self.floor = surf([-4,-4;4.3,4.3],[-1.6,3.6;-1.6,3.6],[-0.2,-0.2;-0.2,-0.2],...
-                         'CData',imread('Grass.jpg'),'FaceColor','texturemap');
+            %self.environment = PlaceObject("Environment.ply", [0,0,-0.2]);
+            %self.floor = surf([-4,-4;4.3,4.3],[-1.6,3.6;-1.6,3.6],[-0.2,-0.2;-0.2,-0.2],...
+                         %'CData',imread('Grass.jpg'),'FaceColor','texturemap');
             view(135,170);
         end
     end
@@ -1142,6 +1142,7 @@ classdef SwipeBot < Calculations & UR3 & MECA500 & Gripper3F & Gripper2F & Table
                 pause(0.001);
             end
        
+
             tr = self.toolChangeTr * self.gripperMeca500offset;
             qTr = self.meca500.ikcon(tr,deg2rad([0 -18 18 0 0 180]));
             toolChange_traj = jtraj(sign_pickup_q, [pi/2 0 0 0 -pi/2 pi], steps/2);
